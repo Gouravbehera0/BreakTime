@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Neomorphic Squircle -->
+    <path
+        android:fillColor="#202027"
+        android:strokeColor="#30303A"
+        android:strokeWidth="1.5"
+        android:pathData="M32,24 L76,24 A8,8 0 0,1 84,32 L84,76 A8,8 0 0,1 76,84 L32,84 A8,8 0 0,1 24,76 L24,32 A8,8 0 0,1 32,24 Z" />
+    <!-- Violet Ring -->
+    <path
+        android:strokeColor="#8B5CF6"
+        android:strokeWidth="2.5"
+        android:pathData="M 54, 34 A 20,20 0 1,1 53.99,34" />
+    <!-- Pause Bars -->
+    <path
+        android:fillColor="#B45CFF"
+        android:pathData="M48,46 L48,62 A2,2 0 0,0 52,62 L52,46 A2,2 0 0,0 48,46 Z" />
+    <path
+        android:fillColor="#B45CFF"
+        android:pathData="M56,46 L56,62 A2,2 0 0,0 60,62 L60,46 A2,2 0 0,0 56,46 Z" />
+    <!-- Orbit Dot -->
+    <path
+        android:fillColor="#B45CFF"
+        android:pathData="M 82,26 A 4,4 0 1,1 81.99,26" />
+</vector>

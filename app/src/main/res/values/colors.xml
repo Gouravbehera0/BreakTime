@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="main_background">#17171C</color>
+    <color name="secondary_background">#1C1C23</color>
+    <color name="raised_card_surface">#202027</color>
+    <color name="dark_shadow">#101014</color>
+    <color name="light_shadow">#30303A</color>
+    <color name="primary_accent">#B45CFF</color>
+    <color name="secondary_accent">#8B5CF6</color>
+    <color name="primary_text">#F5F3FA</color>
+    <color name="secondary_text">#A5A0B5</color>
+    <color name="input_background">#1B1B22</color>
+    <color name="input_border">#34313D</color>
+    <color name="error_color">#FF6B81</color>
+    <color name="success_color">#86EFAC</color>
+</resources>

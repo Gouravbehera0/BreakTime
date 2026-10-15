@@ -1,0 +1,10 @@
+## This file shows how to configure Supabase credentials locally.
+## Copy this file or add these entries to your local.properties file:
+## (local.properties is git-ignored and will not be committed to GitHub)
+
+# sdk.dir=C:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+
+# Supabase Credentials for BreakTime:
+# Obtain these from your Supabase Dashboard -> Project Settings -> API
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...

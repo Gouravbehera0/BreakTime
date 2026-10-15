@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">BreakTime</string>
+    <string name="app_tagline">Pause the World. Live the Moment.</string>
+    <string name="login_welcome_heading">Your time starts here.</string>
+    <string name="login_welcome_subtext">Sign in and make time for your people.</string>
+    <string name="register_heading">Create your account</string>
+    <string name="register_subtext">Join BreakTime and start making memories with your people.</string>
+    <string name="forgot_password_heading">Reset your password</string>
+    <string name="forgot_password_subtext">Enter your email address and we\'ll send you a link to reset your password.</string>
+    
+    <string name="email_label">Email address</string>
+    <string name="email_placeholder">Enter your email</string>
+    <string name="password_label">Password</string>
+    <string name="password_placeholder">Enter your password</string>
+    <string name="full_name_label">Full name</string>
+    <string name="full_name_placeholder">Enter your full name</string>
+    <string name="confirm_password_label">Confirm password</string>
+    <string name="confirm_password_placeholder">Confirm your password</string>
+    <string name="create_password_placeholder">Create a password</string>
+    
+    <string name="remember_me">Remember me</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="enter_breaktime">Enter BreakTime</string>
+    <string name="create_account">Create Account</string>
+    <string name="send_reset_link">Send Reset Link</string>
+    <string name="or_continue_with">OR CONTINUE WITH</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="terms_agreement">I agree to the Terms of Service and Privacy Policy</string>
+    <string name="footer_motto">Made for moments that matter.</string>
+    
+    <string name="new_here_prefix">New here? </string>
+    <string name="create_account_link">Create an account</string>
+    <string name="already_have_account_prefix">Already have an account? </string>
+    <string name="sign_in_link">Sign in</string>
+    <string name="back_to_sign_in">Back to Sign in</string>
+</resources>
