@@ -3,6 +3,7 @@ package com.breaktime.app.ui.auth.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -77,9 +78,9 @@ fun OtpSixCellInput(
 
     // Blinking cursor transition for active empty cell
     val infiniteTransition = rememberInfiniteTransition(label = "cursorBlink")
-    val cursorAlpha by infiniteTransition.animateColorAsState(
-        initialValue = PrimaryAccent,
-        targetValue = PrimaryAccent.copy(alpha = 0f),
+    val cursorAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 600),
             repeatMode = RepeatMode.Reverse
@@ -182,7 +183,7 @@ fun OtpSixCellInput(
                                 modifier = Modifier
                                     .width(2.dp)
                                     .height(24.dp)
-                                    .background(cursorAlpha)
+                                    .background(PrimaryAccent.copy(alpha = cursorAlpha))
                             )
                         }
                     }

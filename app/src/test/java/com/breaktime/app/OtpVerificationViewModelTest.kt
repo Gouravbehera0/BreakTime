@@ -5,6 +5,7 @@ import com.breaktime.app.ui.auth.OtpVerificationViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -143,7 +144,7 @@ class OtpVerificationViewModelTest {
         assertTrue(quickVm.uiState.value.canResend)
 
         quickVm.resendOtp()
-        advanceUntilIdle()
+        runCurrent()
 
         val state = quickVm.uiState.value
         assertFalse(state.isResending)

@@ -27,6 +27,9 @@ import com.breaktime.app.data.contact.DefaultContactRepository
 import com.breaktime.app.data.contact.DefaultInvitationRepository
 import com.breaktime.app.data.contact.InvitationRepository
 import com.breaktime.app.data.contact.SharedPrefsPinPreferencesRepository
+import com.breaktime.app.data.friends.DefaultFriendRepository
+import com.breaktime.app.data.friends.FriendRepository
+import com.breaktime.app.data.friends.PhoneContactReader
 import com.breaktime.app.domain.auth.AuthState
 import com.breaktime.app.ui.auth.ForgotPasswordScreen
 import com.breaktime.app.ui.auth.ForgotPasswordViewModel
@@ -38,6 +41,8 @@ import com.breaktime.app.ui.auth.ProfileSetupScreen
 import com.breaktime.app.ui.auth.ProfileSetupViewModel
 import com.breaktime.app.ui.auth.RegisterScreen
 import com.breaktime.app.ui.auth.RegisterViewModel
+import com.breaktime.app.ui.friends.FriendsScreen
+import com.breaktime.app.ui.friends.FriendsViewModel
 import com.breaktime.app.ui.home.HomeScreen
 import com.breaktime.app.ui.home.HomeViewModel
 import com.breaktime.app.ui.invitation.InvitationScreen
@@ -51,6 +56,8 @@ fun AppNavGraph(
     contactRepository: ContactRepository? = null,
     invitationRepository: InvitationRepository? = null,
     activityRepository: ActivityRepository? = null,
+    friendRepository: FriendRepository? = null,
+    phoneContactReader: PhoneContactReader? = null,
     navController: NavHostController = rememberNavController()
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -64,6 +71,12 @@ fun AppNavGraph(
     }
     val resolvedActivityRepo = remember(activityRepository) {
         activityRepository ?: DefaultActivityRepository(context)
+    }
+    val resolvedFriendRepo = remember(friendRepository) {
+        friendRepository ?: DefaultFriendRepository()
+    }
+    val resolvedPhoneContactReader = remember(phoneContactReader) {
+        phoneContactReader ?: PhoneContactReader(context)
     }
 
     val authState by authRepository.authState.collectAsState()
@@ -80,10 +93,11 @@ fun AppNavGraph(
     // - On subsequent launches or successful login: restore session and open Home or Profile Setup
     // - On sign out or session invalidation: return to Login
     LaunchedEffect(authState) {
-        when (authState) {
+        val current = authState
+        when (current) {
             is AuthState.Authenticated -> {
                 val currentRoute = navController.currentBackStackEntry?.destination?.route
-                val targetDestination = if (authState.user.isProfileComplete) Routes.HOME else Routes.PROFILE_SETUP
+                val targetDestination = if (current.user.isProfileComplete) Routes.HOME else Routes.PROFILE_SETUP
                 if (currentRoute != targetDestination && currentRoute != Routes.INVITATION) {
                     navController.navigate(targetDestination) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
@@ -258,6 +272,9 @@ fun AppNavGraph(
                 onNavigateToInvitation = { contactId ->
                     navController.navigate(Routes.createInvitationRoute(contactId))
                 },
+                onNavigateToFriends = {
+                    navController.navigate(Routes.FRIENDS)
+                },
                 onSignOut = {
                     coroutineScope.launch {
                         authRepository.signOut()
@@ -265,6 +282,28 @@ fun AppNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                }
+            )
+        }
+
+        composable(Routes.FRIENDS) {
+            val currentUser = authRepository.getCurrentUser()
+            val friendsViewModel: FriendsViewModel = viewModel {
+                FriendsViewModel(
+                    friendRepository = resolvedFriendRepo,
+                    phoneContactReader = resolvedPhoneContactReader,
+                    authRepository = authRepository,
+                    initialUserId = currentUser?.id
+                )
+            }
+
+            FriendsScreen(
+                viewModel = friendsViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToInvitation = { contactId ->
+                    navController.navigate(Routes.createInvitationRoute(contactId))
                 }
             )
         }

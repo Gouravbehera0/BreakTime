@@ -10,6 +10,8 @@ import com.breaktime.app.data.auth.SupabaseAuthRepository
 import com.breaktime.app.data.contact.DefaultContactRepository
 import com.breaktime.app.data.contact.DefaultInvitationRepository
 import com.breaktime.app.data.contact.SharedPrefsPinPreferencesRepository
+import com.breaktime.app.data.friends.DefaultFriendRepository
+import com.breaktime.app.data.friends.PhoneContactReader
 import com.breaktime.app.navigation.AppNavGraph
 import com.breaktime.app.ui.theme.BreakTimeTheme
 
@@ -35,6 +37,14 @@ class MainActivity : ComponentActivity() {
         DefaultActivityRepository(applicationContext)
     }
 
+    private val friendRepository by lazy {
+        DefaultFriendRepository()
+    }
+
+    private val phoneContactReader by lazy {
+        PhoneContactReader(applicationContext)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -45,7 +55,9 @@ class MainActivity : ComponentActivity() {
                     authRepository = authRepository,
                     contactRepository = contactRepository,
                     invitationRepository = invitationRepository,
-                    activityRepository = activityRepository
+                    activityRepository = activityRepository,
+                    friendRepository = friendRepository,
+                    phoneContactReader = phoneContactReader
                 )
             }
         }

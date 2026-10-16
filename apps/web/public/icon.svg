@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- Background squircle gradient -->
+    <linearGradient id="squircleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#282833" />
+      <stop offset="100%" stop-color="#1B1B21" />
+    </linearGradient>
+
+    <!-- Ring gradient -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B45CFF" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#B45CFF" />
+    </linearGradient>
+
+    <!-- Satellite orb gradient -->
+    <radialGradient id="orbGrad" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#E2BAFF" />
+      <stop offset="50%" stop-color="#B45CFF" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </radialGradient>
+
+    <!-- Filter for neon glow -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Neomorphic Squircle -->
+  <rect x="15" y="15" width="90" height="90" rx="26" ry="26" fill="url(#squircleGrad)" stroke="#30303A" stroke-width="1.5" />
+
+  <!-- Luminous Ring -->
+  <circle cx="60" cy="60" r="28" fill="none" stroke="url(#ringGrad)" stroke-width="3" filter="url(#neonGlow)" />
+
+  <!-- Vertical Pause Bars -->
+  <!-- Left Bar -->
+  <rect x="52" y="47" width="5" height="26" rx="2.5" ry="2.5" fill="#B45CFF" filter="url(#neonGlow)" />
+  <!-- Right Bar -->
+  <rect x="63" y="47" width="5" height="26" rx="2.5" ry="2.5" fill="#B45CFF" filter="url(#neonGlow)" />
+
+  <!-- Satellite Orb in Orbit -->
+  <circle cx="95" cy="22" r="7.5" fill="url(#orbGrad)" stroke="#E2BAFF" stroke-width="1.2" filter="url(#neonGlow)" />
+</svg>

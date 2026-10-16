@@ -57,6 +57,7 @@ import com.breaktime.app.ui.home.components.BreakTimeHeader
 import com.breaktime.app.ui.home.components.ContactCard
 import com.breaktime.app.ui.home.components.ContactDetailsBottomSheet
 import com.breaktime.app.ui.home.components.ContactSearchAndFilterBar
+import com.breaktime.app.ui.home.components.DashboardTab
 import com.breaktime.app.ui.home.components.FloatingGlassNavigationBar
 import com.breaktime.app.ui.home.components.YourPeopleHeader
 import com.breaktime.app.ui.theme.BreakTimeTheme
@@ -76,6 +77,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onSignOut: () -> Unit,
     onNavigateToInvitation: ((String) -> Unit)? = null,
+    onNavigateToFriends: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -98,10 +100,22 @@ fun HomeScreen(
         onContactClicked = viewModel::onContactClicked,
         onDismissContactDetails = viewModel::onDismissContactDetails,
         onNavigateToInvitation = onNavigateToInvitation,
-        onTabSelected = viewModel::onNavTabSelected,
+        onTabSelected = { tab ->
+            if (tab == DashboardTab.CIRCLES && onNavigateToFriends != null) {
+                onNavigateToFriends()
+            } else {
+                viewModel.onNavTabSelected(tab)
+            }
+        },
         onNotificationClick = viewModel::onNotificationClicked,
         onProfileClick = viewModel::onProfileClicked,
-        onAddPeopleClick = viewModel::onAddPeopleClicked,
+        onAddPeopleClick = {
+            if (onNavigateToFriends != null) {
+                onNavigateToFriends()
+            } else {
+                viewModel.onAddPeopleClicked()
+            }
+        },
         onDismissSignOutDialog = viewModel::onDismissSignOutDialog,
         onConfirmSignOut = onSignOut,
         onRetryLoad = viewModel::loadContacts,

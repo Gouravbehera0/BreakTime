@@ -12,6 +12,7 @@ object Routes {
     const val HOME = "home"
     const val EXPLORE = "explore"
     const val CIRCLES = "circles"
+    const val FRIENDS = "friends"
     const val PROFILE = "profile"
     const val INVITATION = "invitation/{contactId}"
 

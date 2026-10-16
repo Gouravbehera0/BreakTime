@@ -1,133 +1,227 @@
-# BreakTime Android Application 🌙
+# BreakTym 🌙
 
 > **"Pause the World. Live the Moment."**
 
-BreakTime is a native Android application designed to help people invite friends, partners, and groups to spend quality time together through one-tap invitations.
+BreakTym is a modern, responsive, web-based Gen-Z social application designed to help people make spontaneous plans with the people who matter most through one-tap invitations.
 
-This repository implements the **Login, Registration, and Password Reset screens** following the **Midnight Neomorphism** design language.
+Built on the **Midnight Neomorphism** design system, BreakTym prioritizes intimacy, privacy, and speed — strictly eliminating usernames, public directories, and unwanted algorithms.
 
 ---
 
-## 🎨 Visual Identity: Midnight Neomorphism
+## 🎨 Brand Identity & Design System: Midnight Neomorphism
 
-The interface is custom-built to feel intimate, calm, and expressive — avoiding standard corporate, banking, or Material 3 light themes.
+BreakTym employs a restrained, premium dark aesthetic combining deep charcoal surfaces, radiant purple highlights, and glassmorphic touches.
 
-### Strict Color Palette
+### Core Brand Palette
 
 | Token | Hex Value | Usage |
 |---|---|---|
-| **Main Background** | `#17171C` | Screen base background |
-| **Secondary Background** | `#1C1C23` | Social pill, elevated containers |
-| **Raised Card Surface** | `#202027` | Beveled neomorphic cards & logo base |
+| **Primary Background** | `#17171C` | Screen base foundation & outer canvas |
+| **Secondary Background** | `#1C1C23` | Container wells, tab holders & elevated panels |
+| **Raised Card Surface** | `#202027` | Beveled neomorphic cards with dual highlights |
 | **Dark Shadow** | `#101014` | Bottom-right elevation drop shadows |
-| **Light Shadow / Highlight** | `#30303A` | Top-left specular highlights and rim bevels |
-| **Primary Accent** | `#B45CFF` | Vibrant neon purple glow, active focus, links |
-| **Secondary Accent** | `#8B5CF6` | Primary button gradient start & deep purple tone |
-| **Primary Text** | `#F5F3FA` | High-contrast headers, input values, button text |
-| **Secondary Text** | `#A5A0B5` | Muted labels, placeholders, supporting text |
-| **Input Background** | `#1B1B22` | Recessed form input surface |
-| **Input Border** | `#34313D` | Default recessed field outline |
-| **Input Focused Border**| `#9E65FF` | Animated glow outline on focus |
-| **Error** | `#FF6B81` | Validation errors and failure feedback |
-| **Success** | `#86EFAC` | Reset link dispatched confirmation |
+| **Light Highlight** | `#30303A` | Top-left specular rim bevels & subtle borders |
+| **Primary Purple** | `#B45CFF` | Radiant neon glow, active links, logos & focus |
+| **Secondary Purple** | `#8B5CF6` | Gradient origin tone & secondary accents |
+| **Primary Text** | `#F5F3FA` | High-contrast headers, input values & titles |
+| **Muted Text** | `#A5A0B5` | Subtitles, helper text & placeholders |
+| **Online Status** | `#86EFAC` | Real-time presence & positive feedback |
+| **Error** | `#FF6B81` | Validation alerts & destructive actions |
 
 ---
 
 ## 🧱 Architecture & Project Structure
 
-The project adheres to Clean Architecture with MVVM and unidirectional data flow using Kotlin Coroutines and `StateFlow`:
+The repository follows a clean, decoupled monorepo structure where the modern web application lives in `apps/web/`, while the native Android application is preserved in `app/`.
 
-```
-com.breaktime.app
-├── MainActivity.kt                      # Edge-to-edge Activity host
-│
-├── navigation/
-│   ├── Routes.kt                        # Screen route identifiers
-│   └── AppNavGraph.kt                   # NavHost with smooth transitions
-│
-├── ui/
-│   ├── theme/
-│   │   ├── Color.kt                     # Midnight Neomorphism palette & gradients
-│   │   ├── Type.kt                      # Clean typography
-│   │   ├── Shapes.kt                    # Neomorphic corner radii
-│   │   └── Theme.kt                     # Dark theme enforcer & system bar colors
-│   │
-│   ├── components/
-│   │   ├── AmbientBackground.kt         # Canvas-drawn celestial orbs & purple horizon
-│   │   ├── BreakTimeLogo.kt             # Brand squircle, neon ring, pause bars & orbit orb
-│   │   ├── NeomorphicCard.kt            # Raised surface with dual highlight/shadow
-│   │   ├── NeomorphicTextField.kt       # Recessed two-line input with animated focus glow
-│   │   ├── PrimaryGradientButton.kt     # #8B5CF6 -> #B45CFF gradient with arrow & loading
-│   │   ├── SocialLoginButton.kt         # Neomorphic Google Sign-in button with vector logo
-│   │   ├── NeomorphicCheckbox.kt        # Animated checkbox with purple checked state
-│   │   └── PasswordVisibilityToggle.kt  # Accessible show/hide password toggle
-│   │
-│   ├── auth/
-│   │   ├── LoginScreen.kt               # Midnight Neomorphism Login UI
-│   │   ├── LoginViewModel.kt            # Login form state, validation, auth triggers
-│   │   ├── RegisterScreen.kt            # Create Account UI with terms checkbox
-│   │   ├── RegisterViewModel.kt         # Registration state & password confirmation
-│   │   ├── ForgotPasswordScreen.kt      # Password recovery screen & confirmation card
-│   │   └── ForgotPasswordViewModel.kt   # Password reset state handler
-│   │
-│   └── home/
-│       └── HomeScreen.kt                # Landing destination after successful login
-│
-├── data/
-│   └── auth/
-│       ├── AuthRepository.kt            # Repository contract
-│       ├── SupabaseConfig.kt            # Supabase credentials loader & validator
-│       └── SupabaseAuthRepository.kt    # Supabase Kotlin SDK implementation
-│
-└── domain/
-    └── auth/
-        ├── AuthState.kt                 # Auth state & user models
-        └── ValidationUtils.kt           # Pure Kotlin validation functions
+```text
+BreakTime/
+├── apps/
+│   └── web/                         # Modern React + Vite + TypeScript web app
+│       ├── public/                  # PWA manifest, SVG icons
+│       ├── src/
+│       │   ├── components/          # Reusable UI & Layout components
+│       │   │   ├── layout/          # Header, FloatingNavBar
+│       │   │   └── ui/              # NeomorphicCard, NeomorphicButton, NeomorphicInput, Avatar, Logo
+│       │   ├── features/            # Feature views
+│       │   │   ├── auth/            # Phone OTP, Email/Password, Profile Setup, Demo Mode
+│       │   │   ├── home/            # Home dashboard, search, filter chips, contact cards
+│       │   │   ├── friends/         # Circles, Contact matching, pending requests, QR share
+│       │   │   ├── invitation/      # Circular glass activity selector, custom editor
+│       │   │   ├── profile/         # Profile details, status/vibe editing, credentials
+│       │   │   └── settings/        # Backend connectivity diagnostics, privacy rules
+│       │   ├── lib/                 # Supabase client, Contact Picker API, utility helpers
+│       │   ├── services/            # Auth, Friends, Activity, and Invitation services
+│       │   ├── types/               # Strict TypeScript domain interfaces
+│       │   ├── styles/
+│       │   ├── App.tsx              # Root coordinator & state manager
+│       │   ├── main.tsx             # DOM root mount
+│       │   ├── index.css            # Tailwind + Neomorphic CSS utilities
+│       │   └── vite-env.d.ts        # Vite environment types
+│       ├── .env.example             # Environment template
+│       ├── package.json             # Web package configuration
+│       ├── tailwind.config.js       # Design token mappings
+│       ├── tsconfig.json            # Strict TypeScript configuration
+│       └── vite.config.ts           # Bundler & alias configuration
+├── app/                             # Preserved Android native application (Kotlin / Jetpack Compose)
+├── supabase/
+│   └── migrations/                  # PostgreSQL schemas & RPC functions
+│       ├── 20261016_contact_friends_system.sql
+│       └── 20261016_activity_invitations.sql
+├── package.json                     # Monorepo workspaces & root execution scripts
+├── .gitignore                       # Clean repository hygiene
+└── README.md                        # Documentation
 ```
 
 ---
 
-## 🔐 Supabase Authentication Integration
+## ✨ Features Implemented
 
-BreakTime is built to connect directly to [Supabase Auth](https://supabase.com/docs/guides/auth).
+### 1. Landing & Authentication
+- **Phone OTP Verification**: Built for Supabase Auth SMS delivery with 6-digit cell inputs and automatic resend cooldown.
+- **Email & Password**: Alternative registration and authentication with email confirmation handling.
+- **Demo Mode**: Instant one-click sandboxed exploration mode allowing full evaluation without pre-configured SMS gateways.
+- **Profile Onboarding**: Display name and optional status/vibe setup.
 
-### How to Configure Supabase
+### 2. Home Dashboard
+- **Greeting**: *"What's your tym today?"*
+- **Filter Tags**: Real-time counters for All, Online, Offline, and Pinned circle members.
+- **Contact Cards**: Relationship badges (`LOVER`, `BESTFRIENDS`, `FRIENDS`, `BHAI`, `SISTER`, `FAMILY`, `COLLEGE`, `CRUSH`), online indicators, pin-to-top toggles, and instant break invites.
+- **Quick Activities**: Top plan shortcut pills (Chai, Night Ride, Food, Shopping).
 
-1. Create a project at [Supabase](https://database.new) or open your existing project.
-2. In the project root of `BreakTime`, open or create `local.properties`:
-   ```properties
-   # Supabase Credentials (automatically injected into BuildConfig)
-   SUPABASE_URL=https://your-project-id.supabase.co
-   SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   ```
-   *(Note: `local.properties` is in `.gitignore` and is never committed to source control).*
-3. Alternatively, supply them as environment variables:
-   ```bash
-   export SUPABASE_URL="https://your-project-id.supabase.co"
-   export SUPABASE_ANON_KEY="your-anon-key"
-   ```
-4. **Compile and Run**: If credentials are not yet configured, the app compiles smoothly and shows a clean, helpful configuration dialog if a login or register attempt is triggered, preventing accidental silent failures or fake mock authentications.
+### 3. Contact-Based Circles & Friends
+- **Zero Username Directory**: You cannot search by random username; BreakTym operates solely on people already in your phone contacts.
+- **Progressive Enhancement Contact Discovery**:
+  - Uses the native browser **Contact Picker API** (`navigator.contacts.select`) on compatible mobile browsers (Android Chrome).
+  - Falls back gracefully on desktop browsers with manual phone matching and personal invite links.
+  - Matches contacts server-side via Supabase `match_phone_contacts` RPC without storing or leaking your address book.
+- **Relationship Requests**: Send, accept, decline, and cancel friend requests with immediate state feedback.
+- **QR Code & Shareable Link**: One-tap share modal for inviting friends to join your circle.
+
+### 4. Activity Invitations
+- **Circular Glass Activity Selector**: Large tactile visual focal disc featuring swipe/button navigation, carousel dot indicator, and arrow-key support.
+- **Consensual Activity System**:
+  - Evening Chai (☕)
+  - Night Ride (🏍️)
+  - Shopping (🛍️)
+  - Walking (🚶)
+  - Food (🍜)
+  - Movie Night (🎬)
+  - Gaming (🎮)
+  - Smoking Break (🚬)
+  - Drinking (🥂)
+  - Kiss (💋 - strictly requires mutual `LOVER` relationship)
+  - Cuddle (🫂 - strictly requires mutual `LOVER` relationship)
+  - Custom Activity (✨ - user-defined)
+- **Explicit Send Action**: Selecting or swiping never sends an invite; dispatch requires pressing **Send Invitation**.
+- **Custom Activity Editor**: Add, edit, and delete user-defined spontaneous activities stored locally and synchronized with the backend.
+
+### 5. Profile & Settings
+- **Profile View**: Display name, vibe/status, connected phone/email, and circle statistics.
+- **Settings & Architecture Diagnostics**: Live Supabase connection test, environment URL display, design palette tokens, and sign-out.
 
 ---
 
-## 🚀 Running the Application in Android Studio
+## 🚀 Quickstart & Local Setup
 
-1. Open **Android Studio** (Koala / Ladybug / 2024.1+).
-2. Select **File -> Open...** and navigate to `c:\Users\GOURAV KUMAR BEHERA\Downloads\BreakTime`.
-3. Wait for Gradle sync to complete. Android Studio will automatically resolve dependencies via the included `gradlew` wrapper (Gradle 8.14.3).
-4. Connect an Android device or start an Android Virtual Device (AVD) running Android 8.0 (API 26) or higher.
-5. Click the green **Run 'app'** button (or press `Shift + F10`).
+### Prerequisites
+- **Node.js**: v18.0.0 or higher (v20+ recommended)
+- **npm**: v9.0.0 or higher
 
----
-
-## 🧪 Running Unit Tests
-
-Unit tests cover input validation, password matching, email regex, error states, and ViewModel reactive state flows.
-
-To run the unit tests from the command line:
-
-```powershell
-.\gradlew.bat test
+### 1. Clone & Install
+```bash
+git clone https://github.com/your-username/BreakTym.git
+cd BreakTime
+npm install
 ```
 
-Or right-click the `app/src/test` folder in Android Studio and select **Run 'Tests in 'app.test''**.
+### 2. Configure Environment Variables
+Inside `apps/web/`:
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+Open `apps/web/.env` and insert your Supabase credentials:
+```properties
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
+```
+*(Note: Never place database passwords or service-role keys in frontend environment files).*
+
+### 3. Run Development Server
+From the repository root:
+```bash
+npm run dev
+```
+The application will launch at `http://localhost:3000`.
+
+### 4. Production Build
+From the repository root:
+```bash
+npm run build
+```
+Build artifacts will be emitted to `apps/web/dist/`.
+
+To preview the production build locally:
+```bash
+npm run preview
+```
+
+---
+
+## 🔐 Supabase Database Configuration
+
+BreakTym utilizes Supabase for authentication, profiles, friend requests, friendships, and activity invitations.
+
+To deploy the schema to your Supabase project:
+1. Open the [Supabase SQL Editor](https://app.supabase.com/project/_/sql).
+2. Execute the contents of:
+   - `supabase/migrations/20261016_contact_friends_system.sql`
+   - `supabase/migrations/20261016_activity_invitations.sql`
+3. In **Authentication -> URL Configuration**, add your web domain (e.g., `http://localhost:3000` for development, or your production URL) to **Site URL** and **Redirect URLs**.
+4. (Optional) In **Authentication -> Providers -> Phone**, configure your SMS provider (Twilio, MessageBird, or Supabase test phone numbers).
+
+---
+
+## 📱 Progressive Web App (PWA)
+
+BreakTym is equipped with a modern web app manifest (`apps/web/public/manifest.json`) and responsive meta tags:
+- **Standalone Display**: Installs cleanly on Android, iOS, and desktop operating systems as a native-feeling app.
+- **Maskable SVG Icons**: Sharp, high-resolution rendering on all display densities.
+- **Theme Color Synchronization**: Smooth status bar and chrome integration with `#17171C`.
+
+---
+
+## 🌐 Deployment Instructions
+
+BreakTym can be deployed to any static or edge hosting provider.
+
+### Vercel
+1. Set **Root Directory** to `apps/web`.
+2. Framework Preset: **Vite**.
+3. Build Command: `npm run build`.
+4. Output Directory: `dist`.
+5. Add Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+### Netlify
+1. Base directory: `apps/web`.
+2. Build command: `npm run build`.
+3. Publish directory: `apps/web/dist`.
+4. Configure environment variables in Netlify site settings.
+
+---
+
+## 🛡️ Privacy & Security Principles
+
+- **No Public Directories**: User records cannot be listed or scraped by arbitrary queries.
+- **Security Definer Function**: Phone contact matching is performed strictly through `public.match_phone_contacts(phone_numbers TEXT[])`, returning matches only for numbers in the caller's query.
+- **Intimate Consent Enforcement**: Sensitive activity types are filtered out unless the mutual relationship type is confirmed as `LOVER`.
+- **Private Nicknames**: Custom names assigned to contacts are visible solely to the user who created them.
+
+---
+
+## 📄 License
+
+Proprietary © BreakTym Team. All rights reserved.

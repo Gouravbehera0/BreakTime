@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val localProperties = Properties().apply {
@@ -14,13 +15,20 @@ val localProperties = Properties().apply {
 }
 
 val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL")
+    ?: localProperties.getProperty("NEXT_PUBLIC_SUPABASE_URL")
     ?: (project.findProperty("SUPABASE_URL") as? String)
+    ?: (project.findProperty("NEXT_PUBLIC_SUPABASE_URL") as? String)
     ?: System.getenv("SUPABASE_URL")
+    ?: System.getenv("NEXT_PUBLIC_SUPABASE_URL")
     ?: ""
 
 val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY")
+    ?: localProperties.getProperty("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+    ?: localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY")
     ?: (project.findProperty("SUPABASE_ANON_KEY") as? String)
+    ?: (project.findProperty("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") as? String)
     ?: System.getenv("SUPABASE_ANON_KEY")
+    ?: System.getenv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
     ?: ""
 
 android {
@@ -90,6 +98,7 @@ dependencies {
     // Supabase & Ktor Client
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.okhttp)
 
     // Test dependencies

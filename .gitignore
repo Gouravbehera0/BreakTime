@@ -1,6 +1,8 @@
+# Android & Gradle
 *.iml
 .gradle
 /local.properties
+local.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -12,5 +14,16 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 app/build
+
+# JVM Crash Logs
+hs_err_pid*.log
+*.log
+
+# Web & Node dependencies
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.env
+.env.local
+.env.*.local

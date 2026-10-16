@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg-main: #17171C;
+  --bg-secondary: #1C1C23;
+  --surface-card: #202027;
+  --shadow-dark: #101014;
+  --shadow-light: #30303A;
+  --accent-primary: #B45CFF;
+  --accent-secondary: #8B5CF6;
+  --text-primary: #F5F3FA;
+  --text-secondary: #A5A0B5;
+  --status-online: #86EFAC;
+  --status-error: #FF6B81;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Neomorphic utilities */
+.neo-card {
+  background: linear-gradient(135deg, #202027 0%, #1A1A21 100%);
+  box-shadow: -4px -4px 10px #30303A, 6px 6px 14px #101014;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neo-card-subtle {
+  background: #202027;
+  box-shadow: -2px -2px 6px rgba(48, 48, 58, 0.6), 4px 4px 8px rgba(16, 16, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.neo-card-interactive {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neo-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: -5px -5px 12px #343440, 8px 8px 18px #0D0D11, 0 0 16px rgba(180, 92, 255, 0.2);
+}
+
+.neo-input {
+  background-color: #1B1B22;
+  box-shadow: inset 2px 2px 5px #101014, inset -2px -2px 5px #262630;
+  border: 1px solid #34313D;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neo-input:focus {
+  outline: none;
+  border-color: #9E65FF;
+  box-shadow: inset 2px 2px 5px #101014, inset -2px -2px 5px #262630, 0 0 12px rgba(180, 92, 255, 0.35);
+}
+
+.neo-button-primary {
+  background: linear-gradient(135deg, #8B5CF6 0%, #B45CFF 100%);
+  box-shadow: 0 4px 14px rgba(180, 92, 255, 0.4), -2px -2px 6px rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.neo-button-primary:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(180, 92, 255, 0.55), -2px -2px 8px rgba(255, 255, 255, 0.15);
+}
+
+.neo-button-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(180, 92, 255, 0.4);
+}
+
+.neo-glass {
+  background: rgba(28, 28, 35, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(180, 92, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #17171C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D2D38;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3D3D4E;
+}

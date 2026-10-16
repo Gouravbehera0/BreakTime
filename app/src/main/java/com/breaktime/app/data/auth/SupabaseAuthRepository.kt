@@ -30,22 +30,8 @@ class SupabaseAuthRepository(
     private val _authState = MutableStateFlow<AuthState>(AuthState.Initial)
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-    private val supabaseClient: SupabaseClient? by lazy {
-        if (SupabaseConfig.isConfigured()) {
-            try {
-                createSupabaseClient(
-                    supabaseUrl = SupabaseConfig.supabaseUrl,
-                    supabaseKey = SupabaseConfig.supabaseAnonKey
-                ) {
-                    install(Auth)
-                }
-            } catch (e: Exception) {
-                null
-            }
-        } else {
-            null
-        }
-    }
+    private val supabaseClient: SupabaseClient?
+        get() = SupabaseClientProvider.client
 
     init {
         initSessionListener()
