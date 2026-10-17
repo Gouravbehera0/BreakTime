@@ -92,7 +92,7 @@ export const LinkPhoneModal: React.FC<LinkPhoneModalProps> = ({
                 <select
                   value={countryCode}
                   onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-full bg-[#1B1B22] text-[#F5F3FA] text-sm rounded-xl py-3 px-2 border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#9E65FF] outline-none"
+                  className="w-full bg-[#1B1B22] text-[#F5F3FA] text-sm rounded-xl py-3 px-2 border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#B45CFF] outline-none"
                 >
                   <option value="+91">🇮🇳 +91</option>
                   <option value="+1">🇺🇸 +1</option>

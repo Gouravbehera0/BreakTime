@@ -10,6 +10,7 @@ interface HeaderProps {
   onSignOutClick: () => void;
   onNotificationClick: () => void;
   hasUnreadNotifications?: boolean;
+  unreadCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSignOutClick,
   onNotificationClick,
   hasUnreadNotifications = false,
+  unreadCount = 0,
 }) => {
   return (
     <header className="sticky top-0 z-30 w-full bg-[#17171C]/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 py-3.5 transition-all">
@@ -46,11 +48,14 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onNotificationClick}
             className="relative p-2.5 rounded-full bg-[#202027] text-[#A5A0B5] hover:text-[#F5F3FA] border border-[#30303A]/60 shadow-[-2px_-2px_5px_#30303A,3px_3px_6px_#101014] transition-all hover:border-[#B45CFF]/40"
-            aria-label="View notifications"
+            aria-label="View notifications and invitations"
+            title="Invitations & Notifications"
           >
             <Bell className="w-4 h-4" />
             {hasUnreadNotifications && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#B45CFF] shadow-[0_0_6px_#B45CFF]" />
+              <span className="absolute -top-1 -right-1 px-1 min-w-[16px] h-4 rounded-full bg-[#B45CFF] text-white text-[9px] font-bold flex items-center justify-center shadow-[0_0_8px_#B45CFF] animate-pulse">
+                {unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : ''}
+              </span>
             )}
           </button>
 

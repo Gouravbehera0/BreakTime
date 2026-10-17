@@ -110,7 +110,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
             <p className="text-[11px] leading-relaxed text-[#A5A0B5]">
               To enable server-side database syncing for friends & profiles, open your Supabase project Dashboard → SQL Editor, and paste the contents of:
               <br />
-              <code className="text-amber-300 font-mono text-[10px]">supabase/migrations/20261016_contact_friends_system.sql</code>
+              <code className="text-amber-300 font-mono text-[10px]">supabase/migrations/20261017_user_id_search_and_friend_requests.sql</code>
             </p>
           </div>
         )}
@@ -127,15 +127,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
 
         <ul className="text-xs text-[#A5A0B5] space-y-2.5">
           <li className="flex items-start gap-2">
-            <span className="text-[#86EFAC] font-bold">✓</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#86EFAC] shrink-0 mt-0.5" />
             <span><strong>No Public Directory:</strong> Users cannot be searched globally or discovered by random strangers.</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#86EFAC] font-bold">✓</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#86EFAC] shrink-0 mt-0.5" />
             <span><strong>Server-Side Contact Matching:</strong> Matching is performed via Postgres SECURITY DEFINER function without exposing raw phone directories.</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#86EFAC] font-bold">✓</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#86EFAC] shrink-0 mt-0.5" />
             <span><strong>Consent-Based Activities:</strong> Intimate invitation categories (Kiss, Cuddle) are strictly restricted to mutual romantic partners (LOVER relationship).</span>
           </li>
         </ul>
@@ -177,7 +177,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
       {/* 4. App Information */}
       <NeomorphicCard className="p-5 sm:p-6 space-y-3.5 text-center flex flex-col items-center">
         <BreakTymLogo size="md" showTagline={true} />
-        <p className="text-[11px] font-mono text-[#635E74] pt-1">
+        <p className="text-[11px] font-mono text-[#7E7991] pt-1">
           Version 2.0.0 (Web Architecture) • React + Vite + Tailwind + Supabase
         </p>
 

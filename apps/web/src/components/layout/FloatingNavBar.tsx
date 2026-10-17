@@ -7,17 +7,19 @@ interface FloatingNavBarProps {
   currentTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   pendingRequestsCount?: number;
+  pendingInvitationsCount?: number;
 }
 
 export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   currentTab,
   onTabChange,
   pendingRequestsCount = 0,
+  pendingInvitationsCount = 0,
 }) => {
   const tabs = [
     { id: 'home' as NavTab, label: 'Home', icon: Home },
     { id: 'friends' as NavTab, label: 'Circles', icon: Users, badge: pendingRequestsCount },
-    { id: 'invitation' as NavTab, label: 'Invite', icon: Send },
+    { id: 'invitation' as NavTab, label: 'Invite', icon: Send, badge: pendingInvitationsCount },
     { id: 'profile' as NavTab, label: 'Profile', icon: User },
     { id: 'settings' as NavTab, label: 'Settings', icon: Settings },
   ];

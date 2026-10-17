@@ -1,3 +1,5 @@
+export type InvitationStatus = 'pending' | 'sent' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+
 export interface ActivityInvitation {
   id: string;
   senderId: string;
@@ -5,8 +7,17 @@ export interface ActivityInvitation {
   activityId: string;
   activityTitle: string;
   customNote?: string;
-  status: 'sent' | 'accepted' | 'declined' | 'expired';
+  status: InvitationStatus;
   createdAt: string;
+  updatedAt?: string;
+  expiresAt?: string;
+  // Enriched profile fields for Inbox and Recipient UI
+  senderDisplayName?: string;
+  senderUsername?: string | null;
+  senderAvatarUrl?: string;
+  recipientDisplayName?: string;
+  recipientUsername?: string | null;
+  recipientAvatarUrl?: string;
 }
 
 export interface InvitationResult {
@@ -18,4 +29,5 @@ export interface InvitationResult {
   message: string;
   isLiveBackendDelivery: boolean;
   errorMessage?: string;
+  recipientName?: string;
 }

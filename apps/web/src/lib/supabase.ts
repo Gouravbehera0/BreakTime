@@ -1,28 +1,45 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/types/database';
 
+// 1. Read environment variables with priority on standard publishable key then fallback to anon key
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  '';
 
+/**
+ * Checks if Supabase credentials are appropriately configured in the current environment.
+ */
 export const isSupabaseConfigured = (): boolean => {
   return (
     typeof supabaseUrl === 'string' &&
     supabaseUrl.startsWith('https://') &&
     supabaseUrl.includes('.supabase.co') &&
-    typeof supabaseAnonKey === 'string' &&
-    supabaseAnonKey.length > 20
+    typeof supabaseKey === 'string' &&
+    supabaseKey.length > 20
   );
 };
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+/**
+ * Shared, singleton typed Supabase client for BreakTym.
+ * Configured with session persistence, automatic token refresh, and URL auth detection.
+ */
+export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured()
+  ? createClient<Database>(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: 'breaktym_auth_session',
       },
     })
   : null;
 
+/**
+ * Diagnostic utility to verify live backend reachability and schema readiness.
+ * Never claims connection unless verified against the actual endpoint.
+ */
 export async function checkSupabaseConnection(): Promise<{
   connected: boolean;
   tablesNeedCreation?: boolean;
@@ -31,7 +48,7 @@ export async function checkSupabaseConnection(): Promise<{
   if (!isSupabaseConfigured() || !supabase) {
     return {
       connected: false,
-      message: 'Supabase credentials are not configured in environment variables.',
+      message: 'Supabase credentials are not configured in environment variables (.env).',
     };
   }
 
@@ -42,7 +59,8 @@ export async function checkSupabaseConnection(): Promise<{
         return {
           connected: true,
           tablesNeedCreation: true,
-          message: 'Connected to Supabase endpoint! Database tables (public.profiles) have not been created yet in the SQL Editor.',
+          message:
+            'Connected to Supabase endpoint! Database tables (public.profiles) have not been created yet in the SQL Editor.',
         };
       }
       if (error.code !== 'PGRST116' && !error.message.includes('permission denied')) {

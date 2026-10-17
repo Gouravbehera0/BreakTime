@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { User, Sparkles } from 'lucide-react';
+import { User, Sparkles, AtSign } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { NeomorphicInput } from '@/components/ui/NeomorphicInput';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { authService } from '@/services/auth-service';
+import { validateUsername } from '@/lib/qr-code';
 import { UserProfile } from '@/types/auth';
 
 interface ProfileSetupModalProps {
@@ -20,6 +21,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({
   onClose,
 }) => {
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,15 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({
       return;
     }
 
+    const cleanUsername = username.trim().replace(/^@/, '');
+    if (cleanUsername) {
+      const val = validateUsername(cleanUsername);
+      if (!val.valid) {
+        setError(val.error || 'Please enter a valid username (3-20 characters, no spaces).');
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -39,6 +50,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({
       const updated = await authService.upsertProfile({
         id: userId,
         displayName: cleanName,
+        username: cleanUsername ? cleanUsername.toLowerCase() : undefined,
         bio: bio.trim() || 'Living for spontaneous breaks ✨',
       });
 
@@ -50,6 +62,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({
       const fallback: UserProfile = {
         id: userId,
         displayName: cleanName,
+        username: cleanUsername ? cleanUsername.toLowerCase() : null,
         bio: bio.trim() || 'Living for spontaneous breaks ✨',
       };
       setIsLoading(false);
@@ -94,6 +107,19 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({
           required
           autoFocus
         />
+
+        <div>
+          <NeomorphicInput
+            label="Unique Username (Optional)"
+            placeholder="e.g. gourav, nightowl"
+            leadingIcon={<AtSign className="w-4 h-4" />}
+            value={username}
+            onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''))}
+          />
+          <p className="text-[11px] text-[#A5A0B5] mt-1.5 pl-1">
+            Enables friends to find and add you without seeing your phone number.
+          </p>
+        </div>
 
         <NeomorphicInput
           label="Current Vibe / Status (Optional)"

@@ -35,10 +35,10 @@ export const NeomorphicInput = React.forwardRef<HTMLInputElement, NeomorphicInpu
             ref={ref}
             type={inputType}
             className={cn(
-              'w-full bg-[#1B1B22] text-[#F5F3FA] placeholder-[#635E74] text-sm md:text-base rounded-xl',
+              'w-full bg-[#1B1B22] text-[#F5F3FA] placeholder-[#7E7991] text-sm md:text-base rounded-xl',
               'border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630]',
               'py-3.5 transition-all duration-200 outline-none',
-              'focus:border-[#9E65FF] focus:shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630,0_0_12px_rgba(180,92,255,0.35)]',
+              'focus:border-[#B45CFF] focus:shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630,0_0_12px_rgba(180,92,255,0.35)]',
               leadingIcon ? 'pl-11' : 'pl-4',
               isPassword ? 'pr-11' : 'pr-4',
               error && 'border-[#FF6B81] focus:border-[#FF6B81] focus:shadow-[0_0_12px_rgba(255,107,129,0.35)]',

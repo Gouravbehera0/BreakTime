@@ -144,7 +144,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
               authMethod === 'phone'
-                ? 'bg-[#202027] text-[#F5F3FA] shadow-[-2px_-2px_6px_#30303A,2px_2px_6px_#101014] border border-[#9E65FF]/50 text-[#B45CFF]'
+                ? 'bg-[#202027] text-[#F5F3FA] shadow-[-2px_-2px_6px_#30303A,2px_2px_6px_#101014] border border-[#B45CFF]/50 text-[#B45CFF]'
                 : 'text-[#A5A0B5] hover:text-[#F5F3FA]'
             }`}
           >
@@ -160,7 +160,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
               authMethod === 'email'
-                ? 'bg-[#202027] text-[#F5F3FA] shadow-[-2px_-2px_6px_#30303A,2px_2px_6px_#101014] border border-[#9E65FF]/50 text-[#B45CFF]'
+                ? 'bg-[#202027] text-[#F5F3FA] shadow-[-2px_-2px_6px_#30303A,2px_2px_6px_#101014] border border-[#B45CFF]/50 text-[#B45CFF]'
                 : 'text-[#A5A0B5] hover:text-[#F5F3FA]'
             }`}
           >
@@ -199,7 +199,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 <select
                   value={countryCode}
                   onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-full bg-[#1B1B22] text-[#F5F3FA] text-sm rounded-xl py-3.5 px-3 border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#9E65FF] outline-none"
+                  className="w-full bg-[#1B1B22] text-[#F5F3FA] text-sm rounded-xl py-3.5 px-3 border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#B45CFF] outline-none"
                 >
                   <option value="+91">🇮🇳 +91</option>
                   <option value="+1">🇺🇸 +1</option>
@@ -357,7 +357,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         {/* Privacy reassurance */}
         <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[#A5A0B5]">
           <ShieldCheck className="w-3.5 h-3.5 text-[#86EFAC]" />
-          <span>Zero usernames. Private phone-matching only.</span>
+          <span>Intimate circles. QR codes, usernames & phone discovery.</span>
         </div>
       </NeomorphicCard>
 

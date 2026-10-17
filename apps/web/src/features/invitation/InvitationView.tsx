@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Lock,
   ArrowLeft,
+  Inbox,
 } from 'lucide-react';
 import { Contact } from '@/types/contact';
 import { BreakActivity } from '@/types/activity';
@@ -25,6 +26,8 @@ interface InvitationViewProps {
   recipientContact: Contact;
   onBackToHome: () => void;
   isDemo?: boolean;
+  onOpenInbox?: () => void;
+  pendingInvitationsCount?: number;
 }
 
 export const InvitationView: React.FC<InvitationViewProps> = ({
@@ -32,6 +35,8 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   recipientContact,
   onBackToHome,
   isDemo = false,
+  onOpenInbox,
+  pendingInvitationsCount = 0,
 }) => {
   const [activities, setActivities] = useState<BreakActivity[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -173,14 +178,31 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={() => setShowCustomModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold 
-          bg-[#202027] hover:bg-[#282833] border border-[#B45CFF]/30 text-[#B45CFF] shadow-sm transition-all shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Custom</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenInbox && (
+            <button
+              onClick={onOpenInbox}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold 
+              bg-[#202027] hover:bg-[#282833] border border-[#30303A] text-[#A5A0B5] hover:text-[#F5F3FA] transition-all"
+              title="View Invitations Inbox"
+            >
+              <Inbox className="w-3.5 h-3.5 text-[#B45CFF]" />
+              <span className="hidden sm:inline">Inbox</span>
+              {Boolean(pendingInvitationsCount && pendingInvitationsCount > 0) && (
+                <span className="w-2 h-2 rounded-full bg-[#B45CFF] shadow-[0_0_6px_#B45CFF]" />
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowCustomModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold 
+            bg-[#202027] hover:bg-[#282833] border border-[#B45CFF]/30 text-[#B45CFF] shadow-sm transition-all shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Custom</span>
+          </button>
+        </div>
       </NeomorphicCard>
 
       {/* Toast Notice */}
@@ -198,7 +220,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         {/* Previous Button */}
         <button
           onClick={handlePrev}
-          className="absolute left-1 sm:left-4 z-20 p-3 rounded-full bg-[#202027]/90 text-[#F5F3FA] 
+          className="absolute left-0 sm:left-4 z-20 p-2.5 sm:p-3 rounded-full bg-[#202027]/90 text-[#F5F3FA] 
           border border-[#30303A] shadow-[-3px_-3px_8px_#30303A,4px_4px_10px_#101014] hover:border-[#B45CFF]/50 
           hover:scale-105 active:scale-95 transition-all"
           aria-label="Previous activity"
@@ -207,13 +229,13 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         </button>
 
         {/* Circular Glass Focal Disc */}
-        <div className="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
+        <div className="relative w-52 h-52 sm:w-64 sm:h-64 flex items-center justify-center">
           {/* Ambient Purple Radial Glow */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#8B5CF6]/20 via-[#B45CFF]/30 to-transparent blur-2xl" />
 
           {/* Neomorphic Raised Outer Ring */}
           <div
-            className="w-full h-full rounded-full bg-gradient-to-br from-[#202027] to-[#18181E] 
+            className="w-full h-full rounded-full bg-gradient-to-br from-[#202027] to-[#17171C] 
             border border-[#30303A]/70 shadow-[-6px_-6px_16px_#30303A,8px_8px_20px_#101014] flex items-center justify-center p-3 relative"
           >
             {/* Luminous Inner Glassmorphic Well */}
@@ -238,7 +260,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         {/* Next Button */}
         <button
           onClick={handleNext}
-          className="absolute right-1 sm:right-4 z-20 p-3 rounded-full bg-[#202027]/90 text-[#F5F3FA] 
+          className="absolute right-0 sm:right-4 z-20 p-2.5 sm:p-3 rounded-full bg-[#202027]/90 text-[#F5F3FA] 
           border border-[#30303A] shadow-[-3px_-3px_8px_#30303A,4px_4px_10px_#101014] hover:border-[#B45CFF]/50 
           hover:scale-105 active:scale-95 transition-all"
           aria-label="Next activity"

@@ -10,14 +10,20 @@ import { InvitationView } from '@/features/invitation/InvitationView';
 import { ProfileView } from '@/features/profile/ProfileView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { LinkPhoneModal } from '@/features/profile/LinkPhoneModal';
+import { TargetProfileModal } from '@/features/friends/TargetProfileModal';
 import { Modal } from '@/components/ui/Modal';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { BreakTymLogo } from '@/components/ui/BreakTymLogo';
 import { authService } from '@/services/auth-service';
 import { friendService } from '@/services/friend-service';
 import { invitationService } from '@/services/invitation-service';
+import { parseQRUrl } from '@/lib/qr-code';
+import { registerServiceWorker, showBrowserNotification } from '@/lib/push-notifications';
+import { supabase } from '@/lib/supabase';
 import { AuthSession, UserProfile } from '@/types/auth';
 import { Contact, FriendRequest } from '@/types/contact';
+import { ActivityInvitation } from '@/types/invitation';
+import { InvitationsInboxModal } from '@/features/invitation/InvitationsInboxModal';
 
 export const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession>({
@@ -36,11 +42,21 @@ export const App: React.FC = () => {
   // Friends & Invitation states
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [invitations, setInvitations] = useState<ActivityInvitation[]>([]);
+  const [showInboxModal, setShowInboxModal] = useState(false);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<Contact | null>(null);
   const [invitingContactIds, setInvitingContactIds] = useState<Set<string>>(new Set());
   const [invitedContactIds, setInvitedContactIds] = useState<Set<string>>(new Set());
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const [targetQRToken, setTargetQRToken] = useState<string | null>(null);
+  const [showTargetProfileModal, setShowTargetProfileModal] = useState(false);
+
+  // Initialize service worker for web push notifications
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
 
   // Restore session on mount
   useEffect(() => {
@@ -53,6 +69,36 @@ export const App: React.FC = () => {
     };
     initSession();
   }, []);
+
+  // Inspect URL on load for personal QR code parameter (?add=<token> or /add/<token>)
+  useEffect(() => {
+    const parsed = parseQRUrl(window.location.href);
+    if (parsed.isValid && parsed.qrToken) {
+      if (session.isAuthenticated) {
+        setTargetQRToken(parsed.qrToken);
+        setShowTargetProfileModal(true);
+        // Clean up URL query / path safely without full reload
+        const cleanUrl = window.location.pathname.replace(/\/add\/[^\/]+/, '') || '/';
+        window.history.replaceState({}, document.title, cleanUrl);
+      } else if (!session.isLoading) {
+        // Unauthenticated scanner: preserve intended friend destination securely in sessionStorage
+        sessionStorage.setItem('breaktym_pending_qr_token', parsed.qrToken);
+        setToastNotice('Friend invitation detected! Sign in or try Demo Lounge to connect ✨');
+      }
+    }
+  }, [session.isAuthenticated, session.isLoading]);
+
+  // Check and resolve pending QR destination once scanner signs in
+  useEffect(() => {
+    if (session.isAuthenticated && session.user) {
+      const pendingToken = sessionStorage.getItem('breaktym_pending_qr_token');
+      if (pendingToken) {
+        sessionStorage.removeItem('breaktym_pending_qr_token');
+        setTargetQRToken(pendingToken);
+        setShowTargetProfileModal(true);
+      }
+    }
+  }, [session.isAuthenticated, session.user]);
 
   // Fetch contacts and pending requests
   const loadContactsAndRequests = useCallback(async () => {
@@ -72,11 +118,122 @@ export const App: React.FC = () => {
     }
   }, [session.user, session.isDemoUser]);
 
+  // Fetch activity invitations (incoming and sent history)
+  const loadInvitations = useCallback(async () => {
+    if (!session.user) return;
+    setIsLoadingInvitations(true);
+    try {
+      const list = await invitationService.getInvitations(session.user.id, session.isDemoUser);
+      setInvitations(list);
+    } catch (err) {
+      console.warn('[BreakTym] Error loading invitations:', err);
+    } finally {
+      setIsLoadingInvitations(false);
+    }
+  }, [session.user, session.isDemoUser]);
+
   useEffect(() => {
     if (session.isAuthenticated) {
       loadContactsAndRequests();
+      loadInvitations();
     }
-  }, [session.isAuthenticated, loadContactsAndRequests]);
+  }, [session.isAuthenticated, loadContactsAndRequests, loadInvitations]);
+
+  // Realtime subscription for incoming activity invitations & delivery status updates
+  useEffect(() => {
+    if (!session.isAuthenticated || !session.user || session.isDemoUser || !supabase) {
+      return;
+    }
+
+    const currentUserId = session.user.id;
+    console.log('[BreakTym Realtime] Subscribing to activity_invitations for user:', currentUserId);
+
+    const channel = supabase
+      .channel(`rt_invitations_${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'activity_invitations',
+        },
+        (payload) => {
+          console.log('[BreakTym Realtime] Activity invitation event received:', payload);
+          // Refresh invitations list immediately for both sender and recipient
+          loadInvitations();
+
+          const record = payload.new as any;
+          if (!record) return;
+
+          // If current user is the recipient of a newly created invitation
+          if (payload.eventType === 'INSERT' && record.recipient_id === currentUserId) {
+            const title = record.activity_title || 'Break';
+            setToastNotice(`New Break Invitation for ${title}! ✨`);
+            showBrowserNotification('Break Invitation! ☕', {
+              body: `You received an invitation for ${title}! Tap to respond.`,
+              tag: `invite-${record.id}`,
+            });
+          }
+
+          // If current user is the sender and the recipient responded
+          if (payload.eventType === 'UPDATE' && record.sender_id === currentUserId) {
+            const title = record.activity_title || 'Break';
+            if (record.status === 'accepted') {
+              setToastNotice(`Your invitation for ${title} was accepted! 🎉`);
+              showBrowserNotification('Invitation Accepted! 🎉', {
+                body: `Your friend accepted your invitation for ${title}!`,
+                tag: `invite-acc-${record.id}`,
+              });
+            } else if (record.status === 'declined') {
+              setToastNotice(`Your invitation for ${title} was declined.`);
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[BreakTym Realtime] activity_invitations channel status:', status);
+      });
+
+    return () => {
+      console.log('[BreakTym Realtime] Unsubscribing channel for user:', currentUserId);
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [session.isAuthenticated, session.user, session.isDemoUser, loadInvitations]);
+
+  // Invitation response handlers
+  const handleAcceptInvitation = async (invitationId: string) => {
+    if (!session.user) return;
+    const result = await invitationService.respondToInvitation(
+      invitationId,
+      session.user.id,
+      'accepted',
+      session.isDemoUser
+    );
+    if (result.success) {
+      setToastNotice(result.message || 'Invitation accepted! Enjoy your break ✨');
+      await loadInvitations();
+    } else {
+      setToastNotice(result.error || 'Failed to accept invitation.');
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: string) => {
+    if (!session.user) return;
+    const result = await invitationService.respondToInvitation(
+      invitationId,
+      session.user.id,
+      'declined',
+      session.isDemoUser
+    );
+    if (result.success) {
+      setToastNotice(result.message || 'Invitation declined.');
+      await loadInvitations();
+    } else {
+      setToastNotice(result.error || 'Failed to decline invitation.');
+    }
+  };
 
   // Auth Callbacks
   const handleAuthSuccess = (newSession: AuthSession, isNewUser = false) => {
@@ -136,7 +293,8 @@ export const App: React.FC = () => {
 
     if (result.success) {
       setInvitedContactIds((prev) => new Set(prev).add(contact.id));
-      setToastNotice(`Invitation for Evening Chai sent to ${contact.name}! ✨`);
+      setToastNotice(result.message || `Invitation for Evening Chai sent to ${contact.name}! ✨`);
+      loadInvitations();
       setTimeout(() => {
         setInvitedContactIds((prev) => {
           const next = new Set(prev);
@@ -144,6 +302,8 @@ export const App: React.FC = () => {
           return next;
         });
       }, 5000);
+    } else {
+      setToastNotice(result.errorMessage || 'Could not send invitation.');
     }
   };
 
@@ -191,6 +351,14 @@ export const App: React.FC = () => {
     );
   }
 
+  // Pending incoming break invitations
+  const incomingPendingInvitations = invitations.filter(
+    (inv) =>
+      inv.recipientId === session.user?.id &&
+      (inv.status === 'pending' || inv.status === 'sent')
+  );
+  const totalUnreadCount = pendingRequests.length + incomingPendingInvitations.length;
+
   // Default recipient if none selected yet for the invitation tab
   const activeRecipient = selectedRecipient || contacts[0] || {
     id: 'friend_aisha',
@@ -208,8 +376,9 @@ export const App: React.FC = () => {
         userProfile={session.profile}
         onProfileClick={() => setActiveTab('profile')}
         onSignOutClick={() => setShowSignOutModal(true)}
-        onNotificationClick={() => setActiveTab('friends')}
-        hasUnreadNotifications={pendingRequests.length > 0}
+        onNotificationClick={() => setShowInboxModal(true)}
+        hasUnreadNotifications={totalUnreadCount > 0}
+        unreadCount={totalUnreadCount}
       />
 
       {/* Global Toast Notification */}
@@ -240,12 +409,18 @@ export const App: React.FC = () => {
             invitedContactIds={invitedContactIds}
             hasLinkedPhone={Boolean(session.profile?.phoneNumber || session.user?.phone)}
             onLinkPhoneClick={() => setShowLinkPhoneModal(true)}
+            incomingInvitations={incomingPendingInvitations}
+            onAcceptInvitation={handleAcceptInvitation}
+            onDeclineInvitation={handleDeclineInvitation}
+            onOpenInbox={() => setShowInboxModal(true)}
           />
         )}
 
         {activeTab === 'friends' && (
           <FriendsView
             currentUserId={session.user?.id || ''}
+            userProfile={session.profile}
+            onProfileUpdated={(updated) => setSession((prev) => ({ ...prev, profile: updated }))}
             confirmedFriends={contacts}
             pendingRequests={pendingRequests}
             onRefresh={loadContactsAndRequests}
@@ -263,6 +438,8 @@ export const App: React.FC = () => {
             recipientContact={activeRecipient}
             onBackToHome={() => setActiveTab('home')}
             isDemo={session.isDemoUser}
+            onOpenInbox={() => setShowInboxModal(true)}
+            pendingInvitationsCount={incomingPendingInvitations.length}
           />
         )}
 
@@ -287,9 +464,24 @@ export const App: React.FC = () => {
         currentTab={activeTab}
         onTabChange={setActiveTab}
         pendingRequestsCount={pendingRequests.length}
+        pendingInvitationsCount={incomingPendingInvitations.length}
       />
 
-      {/* 4. Profile Setup Modal */}
+      {/* 4. Activity Invitations Inbox Modal */}
+      {session.user && (
+        <InvitationsInboxModal
+          isOpen={showInboxModal}
+          onClose={() => setShowInboxModal(false)}
+          invitations={invitations}
+          currentUserId={session.user.id}
+          onAccept={handleAcceptInvitation}
+          onDecline={handleDeclineInvitation}
+          isLoading={isLoadingInvitations}
+          onRefresh={loadInvitations}
+        />
+      )}
+
+      {/* 5. Profile Setup Modal */}
       {session.user && (
         <ProfileSetupModal
           isOpen={showProfileSetup}
@@ -337,6 +529,24 @@ export const App: React.FC = () => {
           </NeomorphicButton>
         </div>
       </Modal>
+
+      {/* 6. Target Profile Resolution Modal from scanned/visited QR link */}
+      {session.user && (
+        <TargetProfileModal
+          isOpen={showTargetProfileModal}
+          onClose={() => {
+            setShowTargetProfileModal(false);
+            setTargetQRToken(null);
+          }}
+          qrToken={targetQRToken}
+          currentUserId={session.user.id}
+          isDemo={session.isDemoUser}
+          onRequestSent={() => {
+            loadContactsAndRequests();
+            setToastNotice('Friend request sent! ✨');
+          }}
+        />
+      )}
     </AmbientBackground>
   );
 };

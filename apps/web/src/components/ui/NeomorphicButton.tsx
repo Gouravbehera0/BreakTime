@@ -22,7 +22,7 @@ export const NeomorphicButton: React.FC<NeomorphicButtonProps> = ({
   const baseStyles = 'relative flex items-center justify-center font-semibold rounded-xl transition-all duration-200 select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
 
   const variants = {
-    primary: 'bg-gradient-to-r from-[#8B5CF6] to-[#B45CFF] text-white shadow-[0_4px_16px_rgba(180,92,255,0.4)] hover:shadow-[0_6px_22px_rgba(180,92,255,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_8px_rgba(180,92,255,0.4)]',
+    primary: 'bg-gradient-to-r from-[#8B5CF6] to-[#B45CFF] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] shadow-[0_4px_16px_rgba(180,92,255,0.4)] hover:shadow-[0_6px_22px_rgba(180,92,255,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_8px_rgba(180,92,255,0.4)]',
     secondary: 'bg-[#202027] text-[#F5F3FA] border border-[#30303A]/60 shadow-[-2px_-2px_6px_#30303A,3px_3px_8px_#101014] hover:border-[#B45CFF]/40 hover:text-white active:shadow-inner',
     ghost: 'bg-transparent text-[#A5A0B5] hover:text-[#F5F3FA] hover:bg-white/5',
     danger: 'bg-gradient-to-r from-red-600 to-[#FF6B81] text-white shadow-[0_4px_14px_rgba(255,107,129,0.35)] hover:-translate-y-0.5',

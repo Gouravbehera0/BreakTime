@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Pin, Send, Plus, Sparkles, Coffee, Bike, Utensils, ShoppingBag, Phone } from 'lucide-react';
 import { Contact, ContactFilter } from '@/types/contact';
+import { ActivityInvitation } from '@/types/invitation';
 import { NeomorphicCard } from '@/components/ui/NeomorphicCard';
 import { RelationshipBadge } from '@/components/ui/RelationshipBadge';
 import { Avatar } from '@/components/ui/Avatar';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
+import { TypewriterHeadline } from './TypewriterHeadline';
 
 interface HomeViewProps {
   userName?: string;
@@ -19,6 +21,10 @@ interface HomeViewProps {
   invitedContactIds?: Set<string>;
   hasLinkedPhone?: boolean;
   onLinkPhoneClick?: () => void;
+  incomingInvitations?: ActivityInvitation[];
+  onAcceptInvitation?: (invitationId: string) => Promise<void>;
+  onDeclineInvitation?: (invitationId: string) => Promise<void>;
+  onOpenInbox?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -34,6 +40,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   invitedContactIds = new Set(),
   hasLinkedPhone = true,
   onLinkPhoneClick,
+  incomingInvitations = [],
+  onAcceptInvitation,
+  onDeclineInvitation,
+  onOpenInbox,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<ContactFilter>('ALL');
@@ -87,13 +97,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-28 space-y-6">
       {/* 1. Hero Greeting Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F5F3FA] tracking-tight">
-            What's your tym today, <span className="text-[#B45CFF]">{userName}</span>?
-          </h1>
-          <p className="text-xs sm:text-sm text-[#A5A0B5] mt-1">
-            One tap turns an ordinary moment into a memory.
-          </p>
+        <div className="min-w-0 flex-1">
+          <TypewriterHeadline userName={userName} />
         </div>
 
         {/* Add people button */}
@@ -101,7 +106,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           onClick={onNavigateToFriends}
           className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 rounded-xl 
           bg-[#202027] hover:bg-[#282833] border border-[#B45CFF]/30 text-xs font-semibold text-[#F5F3FA] 
-          shadow-[-2px_-2px_6px_#30303A,3px_3px_8px_#101014] hover:shadow-[0_0_14px_rgba(180,92,255,0.25)] transition-all"
+          shadow-[-2px_-2px_6px_#30303A,3px_3px_8px_#101014] hover:shadow-[0_0_14px_rgba(180,92,255,0.25)] transition-all shrink-0"
         >
           <Plus className="w-4 h-4 text-[#B45CFF]" />
           <span>Find Friends</span>
@@ -110,7 +115,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
       {/* Phone Link Prompt Banner (if not yet linked) */}
       {!hasLinkedPhone && onLinkPhoneClick && (
-        <NeomorphicCard className="p-4 bg-gradient-to-r from-[#202027] to-[#251E30] border-[#B45CFF]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+        <NeomorphicCard className="p-4 bg-[#202027] border border-[#B45CFF]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#B45CFF]/15 border border-[#B45CFF]/30 flex items-center justify-center text-[#B45CFF] shrink-0">
               <Phone className="w-4 h-4" />
@@ -133,6 +138,90 @@ export const HomeView: React.FC<HomeViewProps> = ({
             Link Phone Number
           </NeomorphicButton>
         </NeomorphicCard>
+      )}
+
+      {/* Incoming Break Invitations Section */}
+      {incomingInvitations.length > 0 && (
+        <div className="space-y-3 text-left">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#B45CFF] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              Incoming Break Invitations ({incomingInvitations.length})
+            </span>
+            {onOpenInbox && (
+              <button
+                onClick={onOpenInbox}
+                className="text-[11px] font-semibold text-[#A5A0B5] hover:text-[#B45CFF] transition-colors"
+              >
+                View Inbox →
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {incomingInvitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="p-4 sm:p-5 rounded-2xl bg-[#1C1C23] border border-[#B45CFF]/40 shadow-[0_4px_25px_rgba(180,92,255,0.18)] flex flex-col justify-between space-y-3 transition-all"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar
+                        name={inv.senderDisplayName || 'Friend'}
+                        avatarUrl={inv.senderAvatarUrl}
+                        size="sm"
+                        isOnline={true}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#F5F3FA] truncate">
+                          {inv.senderDisplayName || 'Friend'}
+                        </p>
+                        {inv.senderUsername && (
+                          <p className="text-[10px] text-[#B45CFF] font-medium truncate">
+                            @{inv.senderUsername}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30">
+                      NEW INVITATION
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-[#F5F3FA]">
+                      {inv.senderDisplayName || 'Friend'} invited you for {inv.activityTitle.toUpperCase()}
+                    </h3>
+                    {inv.customNote && (
+                      <p className="text-xs italic text-[#A5A0B5] mt-1 bg-black/20 p-2 rounded-xl border border-white/5">
+                        "{inv.customNote}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                  <NeomorphicButton
+                    variant="ghost"
+                    onClick={() => onDeclineInvitation && onDeclineInvitation(inv.id)}
+                    className="flex-1 py-1.5 text-xs text-[#A5A0B5] hover:text-[#FF6B81] border border-white/5"
+                  >
+                    Decline
+                  </NeomorphicButton>
+                  <NeomorphicButton
+                    variant="primary"
+                    onClick={() => onAcceptInvitation && onAcceptInvitation(inv.id)}
+                    className="flex-1 py-1.5 text-xs bg-[#86EFAC]/20 hover:bg-[#86EFAC]/30 text-[#86EFAC] border border-[#86EFAC]/40 shadow-[0_0_12px_rgba(134,239,172,0.25)]"
+                  >
+                    Accept
+                  </NeomorphicButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* 2. Quick Activity Prompts */}
@@ -170,8 +259,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search your circle by name or relationship..."
-            className="w-full bg-[#1B1B22] text-[#F5F3FA] placeholder-[#635E74] text-xs sm:text-sm rounded-xl py-3 pl-10 pr-4 
-            border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#9E65FF] outline-none transition-all"
+            className="w-full bg-[#1B1B22] text-[#F5F3FA] placeholder-[#7E7991] text-xs sm:text-sm rounded-xl py-3 pl-10 pr-4 
+            border border-[#34313D] shadow-[inset_2px_2px_5px_#101014,inset_-2px_-2px_5px_#262630] focus:border-[#B45CFF] outline-none transition-all"
           />
         </div>
 
@@ -199,7 +288,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>{filter.label}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-black/30 text-[#A5A0B5]'
+                    isSelected ? 'bg-white/20 text-white' : 'bg-black/40 text-[#F5F3FA]'
                   }`}
                 >
                   {filter.count}

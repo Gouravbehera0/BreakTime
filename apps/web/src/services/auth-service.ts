@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserProfile, AuthSession } from '@/types/auth';
+import { ProfileInsert } from '@/types/database';
 
 const DEMO_USER_STORAGE_KEY = 'breaktym_demo_user';
 const DEMO_PROFILE_STORAGE_KEY = 'breaktym_demo_profile';
@@ -343,6 +344,8 @@ export const authService = {
           const profile: UserProfile = {
             id: data.id,
             displayName: data.display_name,
+            username: data.username || null,
+            qrToken: data.qr_token || `token_${data.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
             phoneNumber: data.phone_number,
             avatarUrl: data.avatar_url,
             bio: data.bio,
@@ -359,6 +362,9 @@ export const authService = {
 
     // 4. Return cached profile if found
     if (cachedProfile && cachedProfile.displayName) {
+      if (!cachedProfile.qrToken) {
+        cachedProfile.qrToken = `token_${cachedProfile.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`;
+      }
       return cachedProfile;
     }
 
@@ -370,6 +376,8 @@ export const authService = {
           const derived: UserProfile = {
             id: userId,
             displayName: user.user_metadata.display_name,
+            username: user.user_metadata.username || null,
+            qrToken: `token_${userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
             phoneNumber: user.phone || null,
             bio: 'Living for spontaneous moments ✨',
             createdAt: user.created_at,
@@ -400,9 +408,13 @@ export const authService = {
       }
     }
 
+    const defaultQrToken = existing.qrToken || profile.qrToken || `token_${profile.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`;
+
     const fallbackProfile: UserProfile = {
       id: profile.id,
       displayName: profile.displayName || existing.displayName || 'BreakTym Member',
+      username: profile.username !== undefined ? profile.username : (existing.username || null),
+      qrToken: profile.qrToken !== undefined ? profile.qrToken : defaultQrToken,
       phoneNumber: profile.phoneNumber !== undefined ? profile.phoneNumber : (existing.phoneNumber || null),
       avatarUrl: profile.avatarUrl !== undefined ? profile.avatarUrl : (existing.avatarUrl || null),
       bio: profile.bio !== undefined ? profile.bio : (existing.bio || 'Living for spontaneous breaks ✨'),
@@ -422,11 +434,13 @@ export const authService = {
     // Attempt saving to Supabase if configured
     if (isSupabaseConfigured() && supabase) {
       try {
-        const payload: Record<string, unknown> = {
+        const payload: ProfileInsert = {
           id: profile.id,
+          display_name: profile.displayName || existing.displayName || 'BreakTym Member',
           updated_at: new Date().toISOString(),
         };
-        if (profile.displayName !== undefined) payload.display_name = profile.displayName;
+        if (profile.username !== undefined) payload.username = profile.username ? profile.username.trim().toLowerCase() : null;
+        if (profile.qrToken !== undefined) payload.qr_token = profile.qrToken;
         if (profile.phoneNumber !== undefined) payload.phone_number = profile.phoneNumber;
         if (profile.avatarUrl !== undefined) payload.avatar_url = profile.avatarUrl;
         if (profile.bio !== undefined) payload.bio = profile.bio;
@@ -446,6 +460,8 @@ export const authService = {
           const remoteProfile: UserProfile = {
             id: data.id,
             displayName: data.display_name,
+            username: data.username || null,
+            qrToken: data.qr_token || fallbackProfile.qrToken,
             phoneNumber: data.phone_number,
             avatarUrl: data.avatar_url,
             bio: data.bio,
@@ -586,6 +602,97 @@ export const authService = {
    */
   async requestPhoneLink(_phoneNumber: string): Promise<{ success: boolean; error?: string }> {
     return { success: true };
+  },
+
+  /**
+   * Gets currently authenticated Supabase or local user
+   */
+  async getCurrentUser(): Promise<{ id: string; email?: string; phone?: string } | null> {
+    const demoStored = localStorage.getItem(DEMO_USER_STORAGE_KEY);
+    if (demoStored) {
+      try {
+        return JSON.parse(demoStored);
+      } catch {
+        // ignore
+      }
+    }
+
+    const phoneStored = localStorage.getItem(PHONE_USER_STORAGE_KEY);
+    if (phoneStored) {
+      try {
+        return JSON.parse(phoneStored);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          return {
+            id: user.id,
+            email: user.email,
+            phone: user.phone,
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Gets current active session
+   */
+  async getSession(): Promise<AuthSession | null> {
+    const session = await this.restoreSession();
+    return session.isAuthenticated ? session : null;
+  },
+
+  /**
+   * Observes Supabase authentication state changes
+   */
+  onAuthStateChange(
+    callback: (session: AuthSession | null) => void
+  ): { unsubscribe: () => void } {
+    if (!isSupabaseConfigured() || !supabase) {
+      return { unsubscribe: () => {} };
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, supaSession) => {
+      if (supaSession && supaSession.user) {
+        const profile = await this.getProfile(supaSession.user.id);
+        callback({
+          user: {
+            id: supaSession.user.id,
+            email: supaSession.user.email,
+            phone: supaSession.user.phone,
+          },
+          profile,
+          isAuthenticated: true,
+          isLoading: false,
+          isDemoUser: false,
+        });
+      } else {
+        // Check if phone or demo user is still logged in locally
+        const demoStored = localStorage.getItem(DEMO_USER_STORAGE_KEY);
+        const phoneStored = localStorage.getItem(PHONE_USER_STORAGE_KEY);
+        if (!demoStored && !phoneStored) {
+          callback(null);
+        }
+      }
+    });
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+      },
+    };
   },
 
   /**

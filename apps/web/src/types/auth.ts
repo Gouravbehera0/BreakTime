@@ -1,6 +1,8 @@
 export interface UserProfile {
   id: string;
   displayName: string;
+  username?: string | null;
+  qrToken?: string | null;
   phoneNumber?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
