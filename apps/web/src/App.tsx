@@ -22,8 +22,9 @@ import { registerServiceWorker, showBrowserNotification } from '@/lib/push-notif
 import { supabase } from '@/lib/supabase';
 import { AuthSession, UserProfile } from '@/types/auth';
 import { Contact, FriendRequest } from '@/types/contact';
-import { ActivityInvitation } from '@/types/invitation';
+import { ActivityInvitation, getCelebrationHeadline } from '@/types/invitation';
 import { InvitationsInboxModal } from '@/features/invitation/InvitationsInboxModal';
+import { AcceptanceCelebrationModal } from '@/features/invitation/AcceptanceCelebrationModal';
 
 export const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession>({
@@ -52,6 +53,12 @@ export const App: React.FC = () => {
   const [toastNotice, setToastNotice] = useState<string | null>(null);
   const [targetQRToken, setTargetQRToken] = useState<string | null>(null);
   const [showTargetProfileModal, setShowTargetProfileModal] = useState(false);
+
+  // Acceptance celebration & streak states
+  const [celebratingInvitation, setCelebratingInvitation] = useState<ActivityInvitation | null>(null);
+  const [celebrationStreak, setCelebrationStreak] = useState<number | undefined>(undefined);
+  const [personalStreak, setPersonalStreak] = useState<number>(0);
+  const [friendshipStreak, setFriendshipStreak] = useState<number>(0);
 
   // Initialize service worker for web push notifications
   useEffect(() => {
@@ -118,6 +125,33 @@ export const App: React.FC = () => {
     }
   }, [session.user, session.isDemoUser]);
 
+  // Default recipient if none selected yet for the invitation tab
+  const activeRecipient: Contact = selectedRecipient || contacts[0] || {
+    id: 'friend_aisha',
+    name: 'Aisha Sen',
+    isOnline: true,
+    statusText: 'Active now',
+    relationship: 'FRIENDS',
+    isPinned: false,
+  };
+
+  // Fetch invitation acceptance streaks (Personal & Friendship)
+  const loadStreaks = useCallback(async (customFriendId?: string) => {
+    if (!session.user) return;
+    try {
+      const friendId = customFriendId || selectedRecipient?.id || contacts[0]?.id || 'friend_aisha';
+      const streaks = await invitationService.getInvitationStreaks(
+        session.user.id,
+        friendId,
+        session.isDemoUser
+      );
+      setPersonalStreak(streaks.personalStreak);
+      setFriendshipStreak(streaks.friendshipStreak);
+    } catch (err) {
+      console.warn('[BreakTym] Error loading streaks:', err);
+    }
+  }, [session.user, session.isDemoUser, selectedRecipient?.id, contacts]);
+
   // Fetch activity invitations (incoming and sent history)
   const loadInvitations = useCallback(async () => {
     if (!session.user) return;
@@ -125,6 +159,48 @@ export const App: React.FC = () => {
     try {
       const list = await invitationService.getInvitations(session.user.id, session.isDemoUser);
       setInvitations(list);
+
+      // Offline / Reconnection check: detect unacknowledged accepted invitation within the last 48 hours
+      const now = Date.now();
+      const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+      const uncelebrated = list.find((inv) => {
+        if (inv.status !== 'accepted') return false;
+        const acceptedTime = inv.acceptedAt
+          ? new Date(inv.acceptedAt).getTime()
+          : new Date(inv.createdAt).getTime();
+        if (now - acceptedTime > FORTY_EIGHT_HOURS_MS) return false;
+
+        const isSender = inv.senderId === session.user?.id;
+        const isRecipient = inv.recipientId === session.user?.id;
+        if (!isSender && !isRecipient) return false;
+
+        const dbCelebrated = isSender ? Boolean(inv.senderCelebratedAt) : Boolean(inv.recipientCelebratedAt);
+        const locallyCelebrated = session.user
+          ? invitationService.isCelebrationAcknowledgedLocally(inv.id, session.user.id)
+          : true;
+
+        return !dbCelebrated && !locallyCelebrated;
+      });
+
+      if (uncelebrated) {
+        setCelebratingInvitation(uncelebrated);
+        const otherUserId =
+          uncelebrated.senderId === session.user.id
+            ? uncelebrated.recipientId
+            : uncelebrated.senderId;
+        invitationService
+          .getInvitationStreaks(session.user.id, otherUserId, session.isDemoUser)
+          .then((st) => {
+            setCelebrationStreak(st.friendshipStreak);
+          });
+        const userRole = uncelebrated.senderId === session.user.id ? 'sender' : 'recipient';
+        invitationService.markCelebrationSeen(
+          uncelebrated.id,
+          session.user.id,
+          userRole,
+          session.isDemoUser
+        );
+      }
     } catch (err) {
       console.warn('[BreakTym] Error loading invitations:', err);
     } finally {
@@ -136,8 +212,9 @@ export const App: React.FC = () => {
     if (session.isAuthenticated) {
       loadContactsAndRequests();
       loadInvitations();
+      loadStreaks();
     }
-  }, [session.isAuthenticated, loadContactsAndRequests, loadInvitations]);
+  }, [session.isAuthenticated, loadContactsAndRequests, loadInvitations, loadStreaks]);
 
   // Realtime subscription for incoming activity invitations & delivery status updates
   useEffect(() => {
@@ -159,8 +236,9 @@ export const App: React.FC = () => {
         },
         (payload) => {
           console.log('[BreakTym Realtime] Activity invitation event received:', payload);
-          // Refresh invitations list immediately for both sender and recipient
+          // Refresh invitations list and streaks immediately
           loadInvitations();
+          loadStreaks();
 
           const record = payload.new as any;
           if (!record) return;
@@ -175,18 +253,76 @@ export const App: React.FC = () => {
             });
           }
 
-          // If current user is the sender and the recipient responded
-          if (payload.eventType === 'UPDATE' && record.sender_id === currentUserId) {
+          // If current user is sender or recipient and the invitation status became 'accepted'
+          if (payload.eventType === 'UPDATE' && record.status === 'accepted') {
+            const isUserSender = record.sender_id === currentUserId;
+            const isUserRecipient = record.recipient_id === currentUserId;
+            if (!isUserSender && !isUserRecipient) return;
+
             const title = record.activity_title || 'Break';
-            if (record.status === 'accepted') {
+
+            if (isUserSender) {
               setToastNotice(`Your invitation for ${title} was accepted! 🎉`);
               showBrowserNotification('Invitation Accepted! 🎉', {
                 body: `Your friend accepted your invitation for ${title}!`,
                 tag: `invite-acc-${record.id}`,
               });
-            } else if (record.status === 'declined') {
-              setToastNotice(`Your invitation for ${title} was declined.`);
             }
+
+            // Check if celebration hasn't been acknowledged
+            const dbCelebrated = isUserSender
+              ? Boolean(record.sender_celebrated_at)
+              : Boolean(record.recipient_celebrated_at);
+            const locallyCelebrated = invitationService.isCelebrationAcknowledgedLocally(
+              record.id,
+              currentUserId
+            );
+
+            if (!dbCelebrated && !locallyCelebrated) {
+              const otherUserId = isUserSender ? record.recipient_id : record.sender_id;
+              invitationService
+                .getInvitationStreaks(currentUserId, otherUserId, session.isDemoUser)
+                .then((st) => {
+                  setCelebrationStreak(st.friendshipStreak);
+                });
+
+              const mappedInv: ActivityInvitation = {
+                id: record.id,
+                senderId: record.sender_id,
+                recipientId: record.recipient_id,
+                activityId: record.activity_id,
+                activityTitle: record.activity_title,
+                customNote: record.custom_note,
+                status: 'accepted',
+                meetingStatus: record.meeting_status || 'pending',
+                headline: record.headline || getCelebrationHeadline(record.id),
+                createdAt: record.created_at,
+                acceptedAt: record.accepted_at || new Date().toISOString(),
+                senderCelebratedAt: record.sender_celebrated_at,
+                recipientCelebratedAt: record.recipient_celebrated_at,
+                senderDisplayName: isUserSender
+                  ? session.profile?.displayName || 'You'
+                  : 'Friend',
+                recipientDisplayName: !isUserSender
+                  ? session.profile?.displayName || 'You'
+                  : 'Friend',
+              };
+
+              setCelebratingInvitation(mappedInv);
+              invitationService.markCelebrationSeen(
+                record.id,
+                currentUserId,
+                isUserSender ? 'sender' : 'recipient',
+                session.isDemoUser
+              );
+            }
+          } else if (
+            payload.eventType === 'UPDATE' &&
+            record.sender_id === currentUserId &&
+            record.status === 'declined'
+          ) {
+            const title = record.activity_title || 'Break';
+            setToastNotice(`Your invitation for ${title} was declined.`);
           }
         }
       )
@@ -200,7 +336,7 @@ export const App: React.FC = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [session.isAuthenticated, session.user, session.isDemoUser, loadInvitations]);
+  }, [session.isAuthenticated, session.user, session.isDemoUser, loadInvitations, loadStreaks]);
 
   // Invitation response handlers
   const handleAcceptInvitation = async (invitationId: string) => {
@@ -214,6 +350,19 @@ export const App: React.FC = () => {
     if (result.success) {
       setToastNotice(result.message || 'Invitation accepted! Enjoy your break ✨');
       await loadInvitations();
+      await loadStreaks();
+
+      // Trigger celebration for recipient immediately
+      if (result.invitation) {
+        setCelebratingInvitation(result.invitation);
+        setCelebrationStreak(result.friendshipStreak);
+        invitationService.markCelebrationSeen(
+          invitationId,
+          session.user.id,
+          'recipient',
+          session.isDemoUser
+        );
+      }
     } else {
       setToastNotice(result.error || 'Failed to accept invitation.');
     }
@@ -359,16 +508,6 @@ export const App: React.FC = () => {
   );
   const totalUnreadCount = pendingRequests.length + incomingPendingInvitations.length;
 
-  // Default recipient if none selected yet for the invitation tab
-  const activeRecipient = selectedRecipient || contacts[0] || {
-    id: 'friend_aisha',
-    name: 'Aisha Sen',
-    isOnline: true,
-    statusText: 'Active now',
-    relationship: 'FRIENDS',
-    isPinned: false,
-  };
-
   return (
     <AmbientBackground>
       {/* 1. Top Header */}
@@ -413,6 +552,7 @@ export const App: React.FC = () => {
             onAcceptInvitation={handleAcceptInvitation}
             onDeclineInvitation={handleDeclineInvitation}
             onOpenInbox={() => setShowInboxModal(true)}
+            personalStreak={personalStreak}
           />
         )}
 
@@ -440,6 +580,7 @@ export const App: React.FC = () => {
             isDemo={session.isDemoUser}
             onOpenInbox={() => setShowInboxModal(true)}
             pendingInvitationsCount={incomingPendingInvitations.length}
+            friendshipStreak={friendshipStreak}
           />
         )}
 
@@ -448,6 +589,7 @@ export const App: React.FC = () => {
             session={session}
             onProfileUpdated={(updated) => setSession((prev) => ({ ...prev, profile: updated }))}
             friendsCount={contacts.length}
+            personalStreak={personalStreak}
           />
         )}
 
@@ -478,6 +620,10 @@ export const App: React.FC = () => {
           onDecline={handleDeclineInvitation}
           isLoading={isLoadingInvitations}
           onRefresh={loadInvitations}
+          onCelebrate={(inv) => {
+            setCelebratingInvitation(inv);
+            setShowInboxModal(false);
+          }}
         />
       )}
 
@@ -544,6 +690,21 @@ export const App: React.FC = () => {
           onRequestSent={() => {
             loadContactsAndRequests();
             setToastNotice('Friend request sent! ✨');
+          }}
+        />
+      )}
+
+      {/* 7. Full-Screen Acceptance Celebration Overlay Modal */}
+      {session.user && (
+        <AcceptanceCelebrationModal
+          isOpen={Boolean(celebratingInvitation)}
+          onClose={() => setCelebratingInvitation(null)}
+          invitation={celebratingInvitation}
+          currentUserId={session.user.id}
+          friendshipStreak={celebrationStreak}
+          onViewInvitation={(_inv) => {
+            setCelebratingInvitation(null);
+            setShowInboxModal(true);
           }}
         />
       )}

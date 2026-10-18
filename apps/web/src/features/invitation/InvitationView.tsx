@@ -19,6 +19,7 @@ import { RelationshipBadge } from '@/components/ui/RelationshipBadge';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { NeomorphicCard } from '@/components/ui/NeomorphicCard';
 import { NeomorphicInput } from '@/components/ui/NeomorphicInput';
+import { InviteStreakWidget } from '@/components/ui/InviteStreakWidget';
 import { Modal } from '@/components/ui/Modal';
 
 interface InvitationViewProps {
@@ -28,6 +29,7 @@ interface InvitationViewProps {
   isDemo?: boolean;
   onOpenInbox?: () => void;
   pendingInvitationsCount?: number;
+  friendshipStreak?: number;
 }
 
 export const InvitationView: React.FC<InvitationViewProps> = ({
@@ -37,6 +39,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   isDemo = false,
   onOpenInbox,
   pendingInvitationsCount = 0,
+  friendshipStreak = 0,
 }) => {
   const [activities, setActivities] = useState<BreakActivity[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -204,6 +207,13 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           </button>
         </div>
       </NeomorphicCard>
+
+      {/* 2. Friendship Acceptance Streak Widget */}
+      <InviteStreakWidget
+        variant="friendship"
+        count={friendshipStreak}
+        friendName={recipientContact.name}
+      />
 
       {/* Toast Notice */}
       {toastMessage && (

@@ -1,8 +1,32 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { InvitationResult, ActivityInvitation, InvitationStatus } from '@/types/invitation';
+import {
+  InvitationResult,
+  ActivityInvitation,
+  InvitationStatus,
+  MeetingStatus,
+  InvitationStreaks,
+  getCelebrationHeadline,
+} from '@/types/invitation';
 
 const INVITATIONS_STORAGE_KEY = 'breaktym_recent_invitations';
 const DEMO_INVITATIONS_KEY = 'breaktym_demo_invitations';
+
+export interface RespondInvitationResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  invitationId?: string;
+  status?: 'accepted' | 'declined';
+  meetingStatus?: MeetingStatus;
+  headline?: string;
+  senderId?: string;
+  recipientId?: string;
+  senderName?: string;
+  recipientName?: string;
+  personalStreak?: number;
+  friendshipStreak?: number;
+  invitation?: ActivityInvitation;
+}
 
 // Initial demo invitations for seamless offline/demo testing
 const INITIAL_DEMO_INVITATIONS: ActivityInvitation[] = [
@@ -14,10 +38,27 @@ const INITIAL_DEMO_INVITATIONS: ActivityInvitation[] = [
     activityTitle: 'Evening Chai',
     customNote: 'Warm cups and slow talks. Tapri chai today?',
     status: 'pending',
+    meetingStatus: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     senderDisplayName: 'Aisha Sen',
     senderUsername: 'aisha',
     senderAvatarUrl: undefined,
+  },
+  {
+    id: 'demo_inv_prev_accepted',
+    senderId: 'demo_current_user',
+    recipientId: 'friend_aisha',
+    activityId: 'act_night_ride',
+    activityTitle: 'Night Ride',
+    status: 'accepted',
+    meetingStatus: 'pending',
+    headline: "IT'S A PLAN! 🔥",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    acceptedAt: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
+    senderCelebratedAt: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
+    recipientCelebratedAt: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
+    recipientDisplayName: 'Aisha Sen',
+    recipientUsername: 'aisha',
   },
 ];
 
@@ -99,6 +140,7 @@ export const invitationService = {
               activityTitle,
               customNote: customNote ? customNote.trim() : undefined,
               status: 'pending',
+              meetingStatus: 'pending',
               createdAt: new Date().toISOString(),
               recipientDisplayName: res.recipient_name,
             };
@@ -139,6 +181,7 @@ export const invitationService = {
             activity_title: activityTitle,
             custom_note: customNote ? customNote.trim() : null,
             status: 'pending',
+            meeting_status: 'pending',
           })
           .select('id, created_at')
           .single();
@@ -165,6 +208,7 @@ export const invitationService = {
             activityTitle,
             customNote: customNote ? customNote.trim() : undefined,
             status: 'pending',
+            meetingStatus: 'pending',
             createdAt: data.created_at || new Date().toISOString(),
           };
           this.recordRecentInvitation(inv);
@@ -204,6 +248,7 @@ export const invitationService = {
       activityTitle,
       customNote: customNote ? customNote.trim() : undefined,
       status: 'pending',
+      meetingStatus: 'pending',
       createdAt: new Date().toISOString(),
       senderDisplayName: 'You',
     };
@@ -251,6 +296,11 @@ export const invitationService = {
             activityTitle: d.activity_title,
             customNote: d.custom_note || undefined,
             status: d.status as InvitationStatus,
+            meetingStatus: (d.meeting_status as MeetingStatus) || 'pending',
+            headline: d.headline || undefined,
+            acceptedAt: d.accepted_at || undefined,
+            senderCelebratedAt: d.sender_celebrated_at || undefined,
+            recipientCelebratedAt: d.recipient_celebrated_at || undefined,
             createdAt: d.created_at,
             updatedAt: d.updated_at,
             expiresAt: d.expires_at || undefined,
@@ -287,7 +337,7 @@ export const invitationService = {
           return [];
         }
 
-        // Collect unique sender IDs to fetch profiles
+        // Collect unique user IDs to fetch profiles
         const otherUserIds = Array.from(
           new Set(
             rawInvitations.flatMap((inv: any) => [inv.sender_id, inv.recipient_id])
@@ -318,6 +368,11 @@ export const invitationService = {
             activityTitle: d.activity_title,
             customNote: d.custom_note || undefined,
             status: d.status as InvitationStatus,
+            meetingStatus: (d.meeting_status as MeetingStatus) || 'pending',
+            headline: d.headline || undefined,
+            acceptedAt: d.accepted_at || undefined,
+            senderCelebratedAt: d.sender_celebrated_at || undefined,
+            recipientCelebratedAt: d.recipient_celebrated_at || undefined,
             createdAt: d.created_at,
             updatedAt: d.updated_at,
             expiresAt: d.expires_at || undefined,
@@ -348,13 +403,14 @@ export const invitationService = {
   /**
    * Responds to an invitation (accept or decline).
    * Enforces recipient authorization and updates status in database.
+   * On acceptance, initializes meeting_status to 'pending' and generates celebration payload.
    */
   async respondToInvitation(
     invitationId: string,
     recipientId: string,
     status: 'accepted' | 'declined',
     isDemo = false
-  ): Promise<{ success: boolean; message?: string; error?: string }> {
+  ): Promise<RespondInvitationResult> {
     if (!invitationId || !recipientId) {
       return { success: false, error: 'Invitation ID and Recipient ID are required.' };
     }
@@ -370,15 +426,44 @@ export const invitationService = {
         if (!rpcError && rpcData) {
           const res = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
           if (res.success) {
-            return { success: true, message: res.message };
+            return {
+              success: true,
+              message: res.message,
+              invitationId,
+              status,
+              meetingStatus: 'pending',
+              headline: res.headline || getCelebrationHeadline(invitationId),
+              senderId: res.sender_id,
+              recipientId: res.recipient_id,
+              senderName: res.sender_name,
+              recipientName: res.recipient_name,
+              personalStreak: res.personal_streak,
+              friendshipStreak: res.friendship_streak,
+            };
           }
           return { success: false, error: res.error || 'Failed to respond to invitation.' };
         }
 
         // 2. Direct table update fallback
+        console.warn('[BreakTym Invitation] RPC respond_to_activity_invitation not available, using direct update fallback:', rpcError?.message);
+        const headline = status === 'accepted' ? getCelebrationHeadline(invitationId) : undefined;
+        const nowIso = new Date().toISOString();
+
+        const updateData: any = {
+          status,
+          updated_at: nowIso,
+        };
+
+        if (status === 'accepted') {
+          updateData.meeting_status = 'pending';
+          updateData.accepted_at = nowIso;
+          updateData.headline = headline;
+          updateData.recipient_celebrated_at = nowIso;
+        }
+
         const { error: updateError } = await supabase
           .from('activity_invitations')
-          .update({ status, updated_at: new Date().toISOString() })
+          .update(updateData)
           .eq('id', invitationId)
           .eq('recipient_id', recipientId);
 
@@ -387,9 +472,22 @@ export const invitationService = {
           return { success: false, error: updateError.message };
         }
 
+        // Fetch fresh streak if accepted
+        let streaks: InvitationStreaks = { personalStreak: 0, friendshipStreak: 0 };
+        if (status === 'accepted') {
+          streaks = await this.getInvitationStreaks(recipientId, undefined, false);
+        }
+
         return {
           success: true,
           message: status === 'accepted' ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
+          invitationId,
+          status,
+          meetingStatus: 'pending',
+          headline,
+          recipientId,
+          personalStreak: streaks.personalStreak,
+          friendshipStreak: streaks.friendshipStreak,
         };
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -399,15 +497,218 @@ export const invitationService = {
 
     // Demo Mode Update
     const list = this.getDemoInvitations();
+    const targetInv = list.find((i) => i.id === invitationId);
+    const headline = status === 'accepted' ? getCelebrationHeadline(invitationId) : undefined;
+    const nowIso = new Date().toISOString();
+
     const updated = list.map((inv) =>
-      inv.id === invitationId ? { ...inv, status, updatedAt: new Date().toISOString() } : inv
+      inv.id === invitationId
+        ? {
+            ...inv,
+            status,
+            meetingStatus: 'pending' as MeetingStatus,
+            acceptedAt: status === 'accepted' ? nowIso : undefined,
+            headline,
+            recipientCelebratedAt: status === 'accepted' ? nowIso : undefined,
+            updatedAt: nowIso,
+          }
+        : inv
     );
     localStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(updated));
+
+    // Calculate streaks in demo mode
+    const streaks = this.calculateDemoStreaks(
+      targetInv?.senderId || 'demo_current_user',
+      targetInv?.recipientId
+    );
 
     return {
       success: true,
       message: status === 'accepted' ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
+      invitationId,
+      status,
+      meetingStatus: 'pending',
+      headline,
+      senderId: targetInv?.senderId,
+      recipientId: targetInv?.recipientId,
+      senderName: targetInv?.senderDisplayName,
+      recipientName: targetInv?.recipientDisplayName,
+      personalStreak: streaks.personalStreak,
+      friendshipStreak: streaks.friendshipStreak,
+      invitation: targetInv ? { ...targetInv, status, meetingStatus: 'pending', headline, acceptedAt: nowIso } : undefined,
     };
+  },
+
+  /**
+   * Retrieves invitation acceptance streaks (Personal sent streak and Friendship pair streak).
+   * Note: This is an accepted-invitations count streak, strictly non-daily.
+   * Counts unique invitations accepted by recipient.
+   */
+  async getInvitationStreaks(
+    userId: string,
+    targetFriendId?: string,
+    isDemo = false
+  ): Promise<InvitationStreaks> {
+    if (!userId) {
+      return { personalStreak: 0, friendshipStreak: 0 };
+    }
+
+    if (!isDemo && isSupabaseConfigured() && supabase) {
+      try {
+        // 1. Try secure RPC: get_invitation_streaks
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('get_invitation_streaks', {
+          target_friend_id: targetFriendId || null,
+        });
+
+        if (!rpcError && rpcData) {
+          const res = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+          return {
+            personalStreak: Number(res.personal_streak) || 0,
+            friendshipStreak: Number(res.friendship_streak) || 0,
+          };
+        }
+
+        // 2. Direct table count queries fallback
+        const personalRes = await supabase
+          .from('activity_invitations')
+          .select('id', { count: 'exact', head: true })
+          .eq('sender_id', userId)
+          .eq('status', 'accepted');
+
+        let friendshipCount = 0;
+        if (targetFriendId) {
+          const friendshipRes = await supabase
+            .from('activity_invitations')
+            .select('id', { count: 'exact', head: true })
+            .or(
+              `and(sender_id.eq.${userId},recipient_id.eq.${targetFriendId}),and(sender_id.eq.${targetFriendId},recipient_id.eq.${userId})`
+            )
+            .eq('status', 'accepted');
+          friendshipCount = friendshipRes.count || 0;
+        }
+
+        return {
+          personalStreak: personalRes.count || 0,
+          friendshipStreak: friendshipCount,
+        };
+      } catch (err) {
+        console.warn('[BreakTym Invitation] Error fetching streaks:', err);
+      }
+    }
+
+    // Demo Mode derivation
+    return this.calculateDemoStreaks(userId, targetFriendId);
+  },
+
+  /**
+   * Helper to calculate streaks from demo storage
+   */
+  calculateDemoStreaks(userId: string, targetFriendId?: string): InvitationStreaks {
+    const list = this.getDemoInvitations();
+    const personalSet = new Set(
+      list.filter((inv) => inv.senderId === userId && inv.status === 'accepted').map((i) => i.id)
+    );
+
+    let friendshipStreak = 0;
+    if (targetFriendId) {
+      const friendshipSet = new Set(
+        list
+          .filter(
+            (inv) =>
+              ((inv.senderId === userId && inv.recipientId === targetFriendId) ||
+                (inv.senderId === targetFriendId && inv.recipientId === userId)) &&
+              inv.status === 'accepted'
+          )
+          .map((i) => i.id)
+      );
+      friendshipStreak = friendshipSet.size;
+    }
+
+    return {
+      personalStreak: personalSet.size,
+      friendshipStreak,
+    };
+  },
+
+  /**
+   * Marks that the acceptance celebration has been displayed and acknowledged.
+   * Prevents replaying on render, navigation, or app restart.
+   */
+  async markCelebrationSeen(
+    invitationId: string,
+    userId: string,
+    role?: 'sender' | 'recipient',
+    isDemo = false
+  ): Promise<void> {
+    if (!invitationId || !userId) return;
+
+    // 1. Mark in client-side persistence immediately
+    this.markCelebrationAcknowledgedLocally(invitationId, userId);
+
+    // 2. Persist to Supabase if live
+    if (!isDemo && isSupabaseConfigured() && supabase) {
+      try {
+        const { error } = await (supabase.rpc as any)('mark_invitation_celebrated', {
+          input_invitation_id: invitationId,
+          input_role: role || null,
+        });
+
+        if (error) {
+          // Direct table fallback
+          const updateField =
+            role === 'recipient'
+              ? { recipient_celebrated_at: new Date().toISOString() }
+              : { sender_celebrated_at: new Date().toISOString() };
+          await supabase.from('activity_invitations').update(updateField).eq('id', invitationId);
+        }
+      } catch (err) {
+        console.warn('[BreakTym] Error persisting celebration acknowledgment to backend:', err);
+      }
+      return;
+    }
+
+    // Demo mode: update in localStorage demo list
+    const list = this.getDemoInvitations();
+    const updated = list.map((inv) => {
+      if (inv.id === invitationId) {
+        return {
+          ...inv,
+          senderCelebratedAt: role === 'sender' ? new Date().toISOString() : inv.senderCelebratedAt,
+          recipientCelebratedAt: role === 'recipient' ? new Date().toISOString() : inv.recipientCelebratedAt,
+        };
+      }
+      return inv;
+    });
+    localStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(updated));
+  },
+
+  isCelebrationAcknowledgedLocally(invitationId: string, userId: string): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const key = `breaktym_celebrated_${userId}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return false;
+      const set = JSON.parse(raw);
+      return Array.isArray(set) && set.includes(invitationId);
+    } catch {
+      return false;
+    }
+  },
+
+  markCelebrationAcknowledgedLocally(invitationId: string, userId: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const key = `breaktym_celebrated_${userId}`;
+      const raw = localStorage.getItem(key);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      if (!list.includes(invitationId)) {
+        list.push(invitationId);
+        // Retain last 100 acknowledged celebrations
+        localStorage.setItem(key, JSON.stringify(list.slice(-100)));
+      }
+    } catch (err) {
+      console.warn('Could not record celebration acknowledgment locally:', err);
+    }
   },
 
   /**

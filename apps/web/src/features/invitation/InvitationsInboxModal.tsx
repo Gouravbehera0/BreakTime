@@ -23,6 +23,7 @@ interface InvitationsInboxModalProps {
   onDecline: (invitationId: string) => Promise<void>;
   isLoading?: boolean;
   onRefresh?: () => Promise<void> | void;
+  onCelebrate?: (invitation: ActivityInvitation) => void;
 }
 
 export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
@@ -34,6 +35,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
   onDecline,
   isLoading = false,
   onRefresh,
+  onCelebrate,
 }) => {
   const [activeTab, setActiveTab] = useState<'incoming' | 'sent'>('incoming');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -216,10 +218,26 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
                       {/* Status Badge */}
                       <div className="shrink-0 text-right">
                         {isAccepted && (
-                          <span className="text-[11px] font-semibold text-[#86EFAC] bg-[#86EFAC]/15 px-2.5 py-1 rounded-full border border-[#86EFAC]/30 flex items-center gap-1">
-                            <Check className="w-3 h-3" />
-                            <span>Accepted</span>
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-bold text-[#86EFAC] bg-[#86EFAC]/15 px-2.5 py-0.5 rounded-full border border-[#86EFAC]/30 flex items-center gap-1">
+                              <Check className="w-3 h-3" />
+                              <span>Accepted</span>
+                            </span>
+                            <span className="text-[10px] font-bold text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>Meeting Pending</span>
+                            </span>
+                            {onCelebrate && (
+                              <button
+                                type="button"
+                                onClick={() => onCelebrate(inv)}
+                                className="text-[10px] text-[#B45CFF] hover:underline font-semibold mt-0.5 flex items-center gap-0.5"
+                              >
+                                <span>Celebration</span>
+                                <span>✨</span>
+                              </button>
+                            )}
+                          </div>
                         )}
                         {isDeclined && (
                           <span className="text-[11px] font-semibold text-[#A5A0B5] bg-white/5 px-2.5 py-1 rounded-full border border-white/10 flex items-center gap-1">
@@ -325,9 +343,26 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
 
                     <div className="shrink-0 text-right">
                       {isAccepted && (
-                        <span className="text-[11px] font-semibold text-[#86EFAC] bg-[#86EFAC]/15 px-2.5 py-1 rounded-full border border-[#86EFAC]/30">
-                          Accepted ✓
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-bold text-[#86EFAC] bg-[#86EFAC]/15 px-2.5 py-0.5 rounded-full border border-[#86EFAC]/30 flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            <span>Accepted</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>Meeting Pending</span>
+                          </span>
+                          {onCelebrate && (
+                            <button
+                              type="button"
+                              onClick={() => onCelebrate(inv)}
+                              className="text-[10px] text-[#B45CFF] hover:underline font-semibold mt-0.5 flex items-center gap-0.5"
+                            >
+                              <span>Celebration</span>
+                              <span>✨</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                       {isDeclined && (
                         <span className="text-[11px] font-semibold text-[#A5A0B5] bg-white/5 px-2.5 py-1 rounded-full border border-white/10">

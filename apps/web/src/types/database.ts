@@ -153,6 +153,11 @@ export interface Database {
           activity_title: string;
           custom_note: string | null;
           status: InvitationStatus;
+          meeting_status?: 'pending' | 'completed' | 'missed';
+          accepted_at?: string | null;
+          headline?: string | null;
+          sender_celebrated_at?: string | null;
+          recipient_celebrated_at?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -164,6 +169,11 @@ export interface Database {
           activity_title: string;
           custom_note?: string | null;
           status?: InvitationStatus;
+          meeting_status?: 'pending' | 'completed' | 'missed';
+          accepted_at?: string | null;
+          headline?: string | null;
+          sender_celebrated_at?: string | null;
+          recipient_celebrated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -175,6 +185,11 @@ export interface Database {
           activity_title?: string;
           custom_note?: string | null;
           status?: InvitationStatus;
+          meeting_status?: 'pending' | 'completed' | 'missed';
+          accepted_at?: string | null;
+          headline?: string | null;
+          sender_celebrated_at?: string | null;
+          recipient_celebrated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

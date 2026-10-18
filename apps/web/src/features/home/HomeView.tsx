@@ -3,10 +3,11 @@ import { Search, Pin, Send, Plus, Sparkles, Coffee, Bike, Utensils, ShoppingBag,
 import { Contact, ContactFilter } from '@/types/contact';
 import { ActivityInvitation } from '@/types/invitation';
 import { NeomorphicCard } from '@/components/ui/NeomorphicCard';
+import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { RelationshipBadge } from '@/components/ui/RelationshipBadge';
 import { Avatar } from '@/components/ui/Avatar';
-import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { TypewriterHeadline } from './TypewriterHeadline';
+import { InviteStreakWidget } from '@/components/ui/InviteStreakWidget';
 
 interface HomeViewProps {
   userName?: string;
@@ -25,6 +26,7 @@ interface HomeViewProps {
   onAcceptInvitation?: (invitationId: string) => Promise<void>;
   onDeclineInvitation?: (invitationId: string) => Promise<void>;
   onOpenInbox?: () => void;
+  personalStreak?: number;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -44,6 +46,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onAcceptInvitation,
   onDeclineInvitation,
   onOpenInbox,
+  personalStreak = 0,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<ContactFilter>('ALL');
@@ -101,16 +104,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <TypewriterHeadline userName={userName} />
         </div>
 
-        {/* Add people button */}
-        <button
-          onClick={onNavigateToFriends}
-          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 rounded-xl 
-          bg-[#202027] hover:bg-[#282833] border border-[#B45CFF]/30 text-xs font-semibold text-[#F5F3FA] 
-          shadow-[-2px_-2px_6px_#30303A,3px_3px_8px_#101014] hover:shadow-[0_0_14px_rgba(180,92,255,0.25)] transition-all shrink-0"
-        >
-          <Plus className="w-4 h-4 text-[#B45CFF]" />
-          <span>Find Friends</span>
-        </button>
+        {/* Action Row: Streak Widget + Add People */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0 flex-wrap">
+          <InviteStreakWidget
+            variant="compact"
+            count={personalStreak}
+          />
+
+          <button
+            onClick={onNavigateToFriends}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl 
+            bg-[#202027] hover:bg-[#282833] border border-[#B45CFF]/30 text-xs font-semibold text-[#F5F3FA] 
+            shadow-[-2px_-2px_6px_#30303A,3px_3px_8px_#101014] hover:shadow-[0_0_14px_rgba(180,92,255,0.25)] transition-all"
+          >
+            <Plus className="w-4 h-4 text-[#B45CFF]" />
+            <span>Find Friends</span>
+          </button>
+        </div>
       </div>
 
       {/* Phone Link Prompt Banner (if not yet linked) */}

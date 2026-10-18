@@ -21,17 +21,20 @@ import { friendService } from '@/services/friend-service';
 import { validateUsername, suggestUsernames } from '@/lib/qr-code';
 import { LinkPhoneModal } from './LinkPhoneModal';
 import { MyQRCodeModal } from '@/features/friends/MyQRCodeModal';
+import { InviteStreakWidget } from '@/components/ui/InviteStreakWidget';
 
 interface ProfileViewProps {
   session: AuthSession;
   onProfileUpdated: (updated: UserProfile) => void;
   friendsCount?: number;
+  personalStreak?: number;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   session,
   onProfileUpdated,
   friendsCount = 0,
+  personalStreak = 0,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(session.profile?.displayName || '');
@@ -242,20 +245,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
 
         {/* Stats Row */}
-        <div className="w-full grid grid-cols-2 gap-3 pt-3 border-t border-white/5">
+        <div className="w-full grid grid-cols-3 gap-2.5 pt-3 border-t border-white/5">
           <div className="p-3 rounded-xl bg-[#1B1B22] border border-[#30303A]/60">
             <p className="text-xl font-black text-[#F5F3FA]">{friendsCount}</p>
             <p className="text-[10px] uppercase font-bold text-[#A5A0B5] tracking-wider mt-0.5">
-              People in Circle
+              People
             </p>
           </div>
 
           <div className="p-3 rounded-xl bg-[#1B1B22] border border-[#30303A]/60">
             <p className="text-xl font-black text-[#86EFAC]">Active</p>
             <p className="text-[10px] uppercase font-bold text-[#A5A0B5] tracking-wider mt-0.5">
-              Status Presence
+              Status
             </p>
           </div>
+
+          <div className="p-3 rounded-xl bg-[#1B1B22] border border-[#30303A]/60">
+            <p className="text-xl font-black text-[#B45CFF]">🔥 {personalStreak}</p>
+            <p className="text-[10px] uppercase font-bold text-[#A5A0B5] tracking-wider mt-0.5">
+              Streak
+            </p>
+          </div>
+        </div>
+
+        {/* Dedicated Personal Invite Streak Widget */}
+        <div className="w-full pt-1">
+          <InviteStreakWidget
+            variant="personal"
+            count={personalStreak}
+          />
         </div>
       </NeomorphicCard>
 
