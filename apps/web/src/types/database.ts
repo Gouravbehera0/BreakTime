@@ -208,6 +208,52 @@ export interface Database {
           }
         ];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+          updated_at: string;
+          last_success_at: string | null;
+          disabled_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          last_success_at?: string | null;
+          disabled_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          user_agent?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          last_success_at?: string | null;
+          disabled_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'push_subscriptions_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -365,6 +411,21 @@ export interface Database {
         };
         Returns: Json;
       };
+      upsert_push_subscription: {
+        Args: {
+          input_endpoint: string;
+          input_p256dh: string;
+          input_auth: string;
+          input_user_agent?: string | null;
+        };
+        Returns: Json;
+      };
+      deactivate_push_subscription: {
+        Args: {
+          input_endpoint: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -379,3 +440,5 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 export type FriendRequestRow = Database['public']['Tables']['friend_requests']['Row'];
 export type FriendshipRow = Database['public']['Tables']['friendships']['Row'];
 export type ActivityInvitationRow = Database['public']['Tables']['activity_invitations']['Row'];
+export type PushSubscriptionRow = Database['public']['Tables']['push_subscriptions']['Row'];
+

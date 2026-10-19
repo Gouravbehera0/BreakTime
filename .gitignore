@@ -27,3 +27,5 @@ apps/web/dist/
 apps/web/.env
 .env.local
 .env.*.local
+supabase/.temp/
+

@@ -1,16 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Database, ShieldCheck, Palette, Info, LogOut, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  Database,
+  ShieldCheck,
+  Palette,
+  Info,
+  LogOut,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Bell,
+  Send,
+  Lock,
+} from 'lucide-react';
 import { NeomorphicCard } from '@/components/ui/NeomorphicCard';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { BreakTymLogo } from '@/components/ui/BreakTymLogo';
 import { checkSupabaseConnection } from '@/lib/supabase';
+import {
+  getNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+  showBrowserNotification,
+  isPushNotificationSupported,
+  getVapidPublicKey,
+  PushPermissionStatus,
+} from '@/lib/push-notifications';
 
 interface SettingsViewProps {
   onSignOut: () => void;
   isDemo?: boolean;
+  userId?: string;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = false }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  onSignOut,
+  isDemo = false,
+  userId = '',
+}) => {
   const [connectionStatus, setConnectionStatus] = useState<{
     checked: boolean;
     connected: boolean;
@@ -22,6 +48,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
     message: 'Checking backend status...',
   });
   const [isChecking, setIsChecking] = useState(false);
+
+  // Push notification states
+  const [pushPermission, setPushPermission] = useState<PushPermissionStatus>('default');
+  const [isPushSupported, setIsPushSupported] = useState(true);
+  const [isPushLoading, setIsPushLoading] = useState(false);
+  const [pushStatusMessage, setPushStatusMessage] = useState<string | null>(null);
 
   const runConnectionCheck = async () => {
     setIsChecking(true);
@@ -35,11 +67,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
     setIsChecking(false);
   };
 
+  const refreshPushStatus = () => {
+    const supported = isPushNotificationSupported();
+    setIsPushSupported(supported);
+    if (!supported) {
+      setPushPermission('unsupported');
+    } else {
+      setPushPermission(getNotificationPermission());
+    }
+  };
+
   useEffect(() => {
     runConnectionCheck();
+    refreshPushStatus();
   }, []);
 
+  const handleEnablePush = async () => {
+    setIsPushLoading(true);
+    setPushStatusMessage(null);
+    try {
+      const res = await subscribeToPush(userId, isDemo);
+      setPushPermission(res.permission);
+      if (res.success) {
+        setPushStatusMessage('Notifications enabled! You will be alerted when friends invite you.');
+      } else {
+        setPushStatusMessage(res.error || 'Could not enable notifications.');
+      }
+    } catch (err: any) {
+      setPushStatusMessage(err?.message || 'Error subscribing to notifications.');
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setIsPushLoading(true);
+    try {
+      await unsubscribeFromPush(userId, isDemo);
+      refreshPushStatus();
+      setPushStatusMessage('Push notifications disabled for this device.');
+    } catch (err: any) {
+      setPushStatusMessage(err?.message || 'Error disabling notifications.');
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleSendTestAlert = () => {
+    showBrowserNotification('BreakTym Test Alert ☕', {
+      body: 'Your notification system is working perfectly!',
+      tag: 'breaktym-test',
+    });
+    setPushStatusMessage('Test notification sent! Check your notification center.');
+  };
+
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'Not configured in .env';
+  const hasVapidKey = Boolean(getVapidPublicKey());
 
   return (
     <div className="w-full max-w-xl mx-auto px-4 sm:px-6 pt-4 pb-28 space-y-6 text-left">
@@ -47,7 +130,130 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
         Settings & Architecture
       </h1>
 
-      {/* 1. Supabase Backend Integration Status */}
+      {/* 1. Web Push Notifications Status & Controls */}
+      <NeomorphicCard className="p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-[#B45CFF]" />
+            <h2 className="text-sm font-bold text-[#F5F3FA] uppercase tracking-wider">
+              Web Push Notifications
+            </h2>
+          </div>
+
+          <button
+            onClick={refreshPushStatus}
+            className="p-1.5 rounded-lg text-[#A5A0B5] hover:text-[#F5F3FA] hover:bg-white/5 transition-colors"
+            title="Refresh notification status"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-[#1B1B22] border border-[#30303A]/60 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[#A5A0B5]">Permission Status</span>
+            <span className="flex items-center gap-1.5 font-semibold text-xs">
+              {pushPermission === 'granted' ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#86EFAC]" />
+                  <span className="text-[#86EFAC]">Active & Enabled</span>
+                </>
+              ) : pushPermission === 'denied' ? (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-[#FF6B81]" />
+                  <span className="text-[#FF6B81]">Blocked in Browser</span>
+                </>
+              ) : pushPermission === 'unsupported' ? (
+                <>
+                  <Info className="w-3.5 h-3.5 text-[#A5A0B5]" />
+                  <span className="text-[#A5A0B5]">Not Supported</span>
+                </>
+              ) : (
+                <>
+                  <Info className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-amber-400">Not Enabled (Default)</span>
+                </>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
+            <span className="text-[#A5A0B5]">VAPID Public Key</span>
+            <span className="font-mono text-[11px] text-[#F5F3FA]">
+              {hasVapidKey ? (
+                <span className="text-[#86EFAC]">Configured</span>
+              ) : (
+                <span className="text-amber-400">Unset in .env</span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {/* Dynamic status feedback */}
+        {pushStatusMessage && (
+          <p className="text-xs text-[#B45CFF] leading-relaxed bg-[#B45CFF]/10 p-2.5 rounded-lg border border-[#B45CFF]/20">
+            {pushStatusMessage}
+          </p>
+        )}
+
+        {/* Instructions if permission is blocked in browser */}
+        {pushPermission === 'denied' && (
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-200 space-y-1.5">
+            <p className="font-semibold flex items-center gap-1.5 text-red-400">
+              <Lock className="w-3.5 h-3.5" />
+              <span>How to unblock notifications:</span>
+            </p>
+            <ol className="list-decimal list-inside text-[11px] text-[#A5A0B5] space-y-1">
+              <li>Click the lock or tune icon in your browser URL bar.</li>
+              <li>Change <strong>Notifications</strong> from Blocked to <strong>Allow</strong>.</li>
+              <li>Click the button below to check again.</li>
+            </ol>
+            <div className="pt-2">
+              <NeomorphicButton
+                variant="secondary"
+                onClick={refreshPushStatus}
+                className="w-full text-xs py-2"
+              >
+                Check Again
+              </NeomorphicButton>
+            </div>
+          </div>
+        )}
+
+        {/* Actions based on status */}
+        {pushPermission === 'granted' ? (
+          <div className="flex gap-2">
+            <NeomorphicButton
+              variant="secondary"
+              onClick={handleSendTestAlert}
+              className="flex-1 text-xs py-2.5"
+              icon={<Send className="w-3.5 h-3.5 text-[#B45CFF]" />}
+            >
+              Send Test Alert
+            </NeomorphicButton>
+            <NeomorphicButton
+              variant="danger"
+              onClick={handleDisablePush}
+              disabled={isPushLoading}
+              className="text-xs py-2.5 px-3"
+            >
+              Disable
+            </NeomorphicButton>
+          </div>
+        ) : pushPermission !== 'denied' && pushPermission !== 'unsupported' ? (
+          <NeomorphicButton
+            variant="primary"
+            onClick={handleEnablePush}
+            disabled={isPushLoading || !isPushSupported}
+            className="w-full text-xs py-2.5"
+            icon={<Bell className="w-3.5 h-3.5" />}
+          >
+            {isPushLoading ? 'Connecting...' : 'Enable Web Push Notifications'}
+          </NeomorphicButton>
+        ) : null}
+      </NeomorphicCard>
+
+      {/* 2. Supabase Backend Integration Status */}
       <NeomorphicCard className="p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -116,7 +322,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
         )}
       </NeomorphicCard>
 
-      {/* 2. Privacy & Security Rules */}
+      {/* 3. Privacy & Security Rules */}
       <NeomorphicCard className="p-5 sm:p-6 space-y-3.5">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-[#86EFAC]" />
@@ -141,7 +347,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
         </ul>
       </NeomorphicCard>
 
-      {/* 3. Midnight Neomorphism Design System */}
+      {/* 4. Midnight Neomorphism Design System */}
       <NeomorphicCard className="p-5 sm:p-6 space-y-3.5">
         <div className="flex items-center gap-2">
           <Palette className="w-4 h-4 text-[#B45CFF]" />
@@ -174,7 +380,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSignOut, isDemo = 
         </div>
       </NeomorphicCard>
 
-      {/* 4. App Information */}
+      {/* 5. App Information */}
       <NeomorphicCard className="p-5 sm:p-6 space-y-3.5 text-center flex flex-col items-center">
         <BreakTymLogo size="md" showTagline={true} />
         <p className="text-[11px] font-mono text-[#7E7991] pt-1">

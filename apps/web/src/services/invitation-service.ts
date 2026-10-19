@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { triggerPushNotification } from '@/lib/push-notifications';
 import {
   InvitationResult,
   ActivityInvitation,
@@ -146,6 +147,13 @@ export const invitationService = {
             };
             this.recordRecentInvitation(newInv);
 
+            // Trigger real server-side Web Push notification to recipient
+            if (res.invitation_id) {
+              triggerPushNotification('new_invitation', res.invitation_id).catch((err) => {
+                console.warn('[BreakTym Push] Background push dispatch note:', err);
+              });
+            }
+
             return {
               success: true,
               invitationId: res.invitation_id,
@@ -212,6 +220,13 @@ export const invitationService = {
             createdAt: data.created_at || new Date().toISOString(),
           };
           this.recordRecentInvitation(inv);
+
+          // Trigger real server-side Web Push notification to recipient
+          if (data.id) {
+            triggerPushNotification('new_invitation', data.id).catch((err) => {
+              console.warn('[BreakTym Push] Background push dispatch note:', err);
+            });
+          }
 
           return {
             success: true,
@@ -451,6 +466,14 @@ export const invitationService = {
                 }
               : undefined;
 
+            // Trigger real server-side Web Push notification to original sender
+            // Only trigger on first-time acceptance transition (not on idempotent repeat)
+            if (isAccepted && res.invitation_id && !res.message?.includes('already')) {
+              triggerPushNotification('invitation_accepted', res.invitation_id).catch((err) => {
+                console.warn('[BreakTym Push] Background accepted push dispatch note:', err);
+              });
+            }
+
             return {
               success: true,
               message: res.message,
@@ -525,6 +548,10 @@ export const invitationService = {
         let streaks: InvitationStreaks = { personalStreak: 0, friendshipStreak: 0 };
         if (isAccepted) {
           streaks = await this.getInvitationStreaks(recipientId, undefined, false);
+          // Trigger real server-side Web Push notification to original sender
+          triggerPushNotification('invitation_accepted', invitationId).catch((err) => {
+            console.warn('[BreakTym Push] Background accepted push dispatch note:', err);
+          });
         }
 
         const fallbackInv: ActivityInvitation | undefined = isAccepted

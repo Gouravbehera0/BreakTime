@@ -18,13 +18,20 @@ import { authService } from '@/services/auth-service';
 import { friendService } from '@/services/friend-service';
 import { invitationService } from '@/services/invitation-service';
 import { parseQRUrl } from '@/lib/qr-code';
-import { registerServiceWorker, showBrowserNotification } from '@/lib/push-notifications';
+import {
+  registerServiceWorker,
+  showBrowserNotification,
+  isPushNotificationSupported,
+  getNotificationPermission,
+  syncExistingSubscription,
+} from '@/lib/push-notifications';
 import { supabase } from '@/lib/supabase';
 import { AuthSession, UserProfile } from '@/types/auth';
 import { Contact, FriendRequest } from '@/types/contact';
 import { ActivityInvitation, getCelebrationHeadline } from '@/types/invitation';
 import { InvitationsInboxModal } from '@/features/invitation/InvitationsInboxModal';
 import { AcceptanceCelebrationModal } from '@/features/invitation/AcceptanceCelebrationModal';
+import { NotificationPromptModal } from '@/components/ui/NotificationPromptModal';
 
 export const App: React.FC = () => {
   const [session, setSession] = useState<AuthSession>({
@@ -60,18 +67,63 @@ export const App: React.FC = () => {
   const [personalStreak, setPersonalStreak] = useState<number>(0);
   const [friendshipStreak, setFriendshipStreak] = useState<number>(0);
 
+  // Push notification permission prompt state
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
   // Initialize service worker for web push notifications
   useEffect(() => {
     registerServiceWorker();
   }, []);
 
-  // Restore session on mount
+  // Handle incoming push notification click navigation from service worker
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NAVIGATE_INVITATION') {
+        setShowInboxModal(true);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+    };
+  }, []);
+
+  // Inspect URL on load for notification query parameter (?invitation=<id>)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const notifInviteId = urlParams.get('invitation');
+    if (notifInviteId) {
+      setShowInboxModal(true);
+      const cleanUrl = window.location.pathname || '/';
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
+
+  // Restore session on mount and verify push notification status
   useEffect(() => {
     const initSession = async () => {
       const restored = await authService.restoreSession();
       setSession(restored);
       if (restored.isAuthenticated && (!restored.profile || !restored.profile.displayName)) {
         setShowProfileSetup(true);
+      }
+
+      // Check notification permission after successful login
+      if (restored.isAuthenticated && restored.user) {
+        if (isPushNotificationSupported()) {
+          const perm = getNotificationPermission();
+          if (perm === 'granted') {
+            // Subscription already granted: ensure it is linked to the current user
+            syncExistingSubscription(restored.user.id, restored.isDemoUser);
+          } else if (perm === 'default') {
+            // Not yet asked: check cooldown before showing non-blocking prompt
+            const dismissedUntil = localStorage.getItem('breaktym_push_prompt_dismissed_until');
+            if (!dismissedUntil || Date.now() > Number(dismissedUntil)) {
+              setTimeout(() => setShowPushPrompt(true), 900);
+            }
+          }
+        }
       }
     };
     initSession();
@@ -600,6 +652,7 @@ export const App: React.FC = () => {
           <SettingsView
             onSignOut={() => setShowSignOutModal(true)}
             isDemo={session.isDemoUser}
+            userId={session.user?.id}
           />
         )}
       </main>
@@ -738,6 +791,17 @@ export const App: React.FC = () => {
             setCelebratingInvitation(null);
             setShowInboxModal(true);
           }}
+        />
+      )}
+
+      {/* 8. Web Push Permission Opt-In Prompt Modal */}
+      {session.user && (
+        <NotificationPromptModal
+          isOpen={showPushPrompt}
+          onClose={() => setShowPushPrompt(false)}
+          userId={session.user.id}
+          isDemo={session.isDemoUser}
+          onSuccess={() => setToastNotice('Push notifications enabled! 🔔')}
         />
       )}
     </AmbientBackground>
