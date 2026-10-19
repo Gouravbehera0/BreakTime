@@ -3,7 +3,24 @@
 --              prevent duplicate streak increments, and refine RLS policies.
 -- Author: BreakTym Senior Engineering Team
 
--- 1. PRESERVE & UPDATE TABLE CONSTRAINTS
+-- 1. EXTEND public.activity_invitations WITH MISSING COLUMNS
+-- Adds accepted_at, headline, celebration tracking, and ensures meeting_status is present
+ALTER TABLE public.activity_invitations
+    ADD COLUMN IF NOT EXISTS meeting_status TEXT DEFAULT 'pending',
+    ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS headline TEXT,
+    ADD COLUMN IF NOT EXISTS sender_celebrated_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS recipient_celebrated_at TIMESTAMPTZ;
+
+-- Ensure meeting_status default and backfill any NULL values
+UPDATE public.activity_invitations 
+SET meeting_status = 'pending' 
+WHERE meeting_status IS NULL;
+
+ALTER TABLE public.activity_invitations 
+    ALTER COLUMN meeting_status SET DEFAULT 'pending';
+
+-- 2. PRESERVE & UPDATE TABLE CONSTRAINTS
 -- Ensure status tracks pending, accepted, or rejected (while preserving sent, declined, cancelled, expired)
 DO $$
 BEGIN
@@ -415,3 +432,7 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_invitations;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- 11. NOTIFY POSTGREST TO RELOAD SCHEMA CACHE IMMEDIATELY
+NOTIFY pgrst, 'reload schema';
+

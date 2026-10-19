@@ -489,11 +489,32 @@ export const invitationService = {
           updateData.meeting_status = 'cancelled';
         }
 
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from('activity_invitations')
           .update(updateData)
           .eq('id', invitationId)
           .eq('recipient_id', recipientId);
+
+        // If the table is missing accepted_at / headline in schema cache, retry updating core status & meeting_status
+        if (
+          updateError &&
+          (updateError.message.includes('accepted_at') ||
+            updateError.message.includes('schema cache') ||
+            updateError.message.includes('headline'))
+        ) {
+          console.warn('[BreakTym Invitation] Retrying update with core status and meeting_status only:', updateError.message);
+          const coreUpdate: any = {
+            status: normalizedStatus,
+            meeting_status: isAccepted ? 'pending' : 'cancelled',
+            updated_at: nowIso,
+          };
+          const retryRes = await supabase
+            .from('activity_invitations')
+            .update(coreUpdate)
+            .eq('id', invitationId)
+            .eq('recipient_id', recipientId);
+          updateError = retryRes.error;
+        }
 
         if (updateError) {
           console.error('[BreakTym Invitation] Failed to update invitation:', updateError);
@@ -793,11 +814,15 @@ export const invitationService = {
 
         if (error) {
           // Direct table fallback
-          const updateField =
-            role === 'recipient'
-              ? { recipient_celebrated_at: new Date().toISOString() }
-              : { sender_celebrated_at: new Date().toISOString() };
-          await supabase.from('activity_invitations').update(updateField).eq('id', invitationId);
+          try {
+            const updateField =
+              role === 'recipient'
+                ? { recipient_celebrated_at: new Date().toISOString() }
+                : { sender_celebrated_at: new Date().toISOString() };
+            await supabase.from('activity_invitations').update(updateField).eq('id', invitationId);
+          } catch {
+            // Safely ignore if celebration column does not exist yet
+          }
         }
       } catch (err) {
         console.warn('[BreakTym] Error persisting celebration acknowledgment to backend:', err);
