@@ -16,7 +16,7 @@ export interface RespondInvitationResult {
   message?: string;
   error?: string;
   invitationId?: string;
-  status?: 'accepted' | 'declined';
+  status?: 'accepted' | 'rejected' | 'declined';
   meetingStatus?: MeetingStatus;
   headline?: string;
   senderId?: string;
@@ -402,43 +402,69 @@ export const invitationService = {
 
   /**
    * Responds to an invitation (accept or decline).
+   * Responds to an invitation (accept or reject/decline).
    * Enforces recipient authorization and updates status in database.
    * On acceptance, initializes meeting_status to 'pending' and generates celebration payload.
+   * On rejection, updates status to 'rejected' and meeting_status to 'cancelled'.
    */
   async respondToInvitation(
     invitationId: string,
     recipientId: string,
-    status: 'accepted' | 'declined',
+    status: 'accepted' | 'rejected' | 'declined',
     isDemo = false
   ): Promise<RespondInvitationResult> {
     if (!invitationId || !recipientId) {
       return { success: false, error: 'Invitation ID and Recipient ID are required.' };
     }
 
+    const normalizedStatus = status === 'declined' ? 'rejected' : status;
+    const isAccepted = normalizedStatus === 'accepted';
+
     if (!isDemo && isSupabaseConfigured() && supabase) {
       try {
         // 1. Try atomic RPC: respond_to_activity_invitation
         const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('respond_to_activity_invitation', {
           input_invitation_id: invitationId,
-          input_status: status,
+          input_status: normalizedStatus,
         });
 
         if (!rpcError && rpcData) {
           const res = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
           if (res.success) {
+            const headline = res.headline || getCelebrationHeadline(invitationId);
+            const nowIso = new Date().toISOString();
+
+            const acceptedInv: ActivityInvitation | undefined = isAccepted
+              ? {
+                  id: invitationId,
+                  senderId: res.sender_id || '',
+                  recipientId: res.recipient_id || recipientId,
+                  activityId: '',
+                  activityTitle: res.activity_title || 'Break',
+                  status: 'accepted',
+                  meetingStatus: (res.meeting_status as MeetingStatus) || 'pending',
+                  headline,
+                  createdAt: nowIso,
+                  acceptedAt: nowIso,
+                  senderDisplayName: res.sender_name || 'Friend',
+                  recipientDisplayName: res.recipient_name || 'You',
+                }
+              : undefined;
+
             return {
               success: true,
               message: res.message,
               invitationId,
-              status,
-              meetingStatus: 'pending',
-              headline: res.headline || getCelebrationHeadline(invitationId),
+              status: normalizedStatus,
+              meetingStatus: (res.meeting_status as MeetingStatus) || (isAccepted ? 'pending' : 'cancelled'),
+              headline,
               senderId: res.sender_id,
               recipientId: res.recipient_id,
               senderName: res.sender_name,
               recipientName: res.recipient_name,
               personalStreak: res.personal_streak,
               friendshipStreak: res.friendship_streak,
+              invitation: acceptedInv,
             };
           }
           return { success: false, error: res.error || 'Failed to respond to invitation.' };
@@ -446,19 +472,21 @@ export const invitationService = {
 
         // 2. Direct table update fallback
         console.warn('[BreakTym Invitation] RPC respond_to_activity_invitation not available, using direct update fallback:', rpcError?.message);
-        const headline = status === 'accepted' ? getCelebrationHeadline(invitationId) : undefined;
+        const headline = isAccepted ? getCelebrationHeadline(invitationId) : undefined;
         const nowIso = new Date().toISOString();
 
         const updateData: any = {
-          status,
+          status: normalizedStatus,
           updated_at: nowIso,
         };
 
-        if (status === 'accepted') {
+        if (isAccepted) {
           updateData.meeting_status = 'pending';
           updateData.accepted_at = nowIso;
           updateData.headline = headline;
-          updateData.recipient_celebrated_at = nowIso;
+          // Note: recipient_celebrated_at remains NULL until acknowledged
+        } else {
+          updateData.meeting_status = 'cancelled';
         }
 
         const { error: updateError } = await supabase
@@ -474,20 +502,36 @@ export const invitationService = {
 
         // Fetch fresh streak if accepted
         let streaks: InvitationStreaks = { personalStreak: 0, friendshipStreak: 0 };
-        if (status === 'accepted') {
+        if (isAccepted) {
           streaks = await this.getInvitationStreaks(recipientId, undefined, false);
         }
 
+        const fallbackInv: ActivityInvitation | undefined = isAccepted
+          ? {
+              id: invitationId,
+              senderId: '',
+              recipientId,
+              activityId: '',
+              activityTitle: 'Break',
+              status: 'accepted',
+              meetingStatus: 'pending',
+              headline,
+              createdAt: nowIso,
+              acceptedAt: nowIso,
+            }
+          : undefined;
+
         return {
           success: true,
-          message: status === 'accepted' ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
+          message: isAccepted ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
           invitationId,
-          status,
-          meetingStatus: 'pending',
+          status: normalizedStatus,
+          meetingStatus: isAccepted ? 'pending' : 'cancelled',
           headline,
           recipientId,
           personalStreak: streaks.personalStreak,
           friendshipStreak: streaks.friendshipStreak,
+          invitation: fallbackInv,
         };
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -498,18 +542,40 @@ export const invitationService = {
     // Demo Mode Update
     const list = this.getDemoInvitations();
     const targetInv = list.find((i) => i.id === invitationId);
-    const headline = status === 'accepted' ? getCelebrationHeadline(invitationId) : undefined;
+    const headline = isAccepted ? getCelebrationHeadline(invitationId) : undefined;
     const nowIso = new Date().toISOString();
+
+    // Idempotency: if already in target status, return existing without re-processing streaks
+    if (targetInv && targetInv.status === normalizedStatus) {
+      const streaks = this.calculateDemoStreaks(
+        targetInv.senderId || 'demo_current_user',
+        targetInv.recipientId
+      );
+      return {
+        success: true,
+        message: isAccepted ? 'Break invitation is already accepted.' : 'Break invitation is already declined.',
+        invitationId,
+        status: normalizedStatus,
+        meetingStatus: targetInv.meetingStatus || (isAccepted ? 'pending' : 'cancelled'),
+        headline: targetInv.headline || headline,
+        senderId: targetInv.senderId,
+        recipientId: targetInv.recipientId,
+        senderName: targetInv.senderDisplayName,
+        recipientName: targetInv.recipientDisplayName,
+        personalStreak: streaks.personalStreak,
+        friendshipStreak: streaks.friendshipStreak,
+        invitation: targetInv,
+      };
+    }
 
     const updated = list.map((inv) =>
       inv.id === invitationId
         ? {
             ...inv,
-            status,
-            meetingStatus: 'pending' as MeetingStatus,
-            acceptedAt: status === 'accepted' ? nowIso : undefined,
+            status: normalizedStatus as InvitationStatus,
+            meetingStatus: (isAccepted ? 'pending' : 'cancelled') as MeetingStatus,
+            acceptedAt: isAccepted ? nowIso : undefined,
             headline,
-            recipientCelebratedAt: status === 'accepted' ? nowIso : undefined,
             updatedAt: nowIso,
           }
         : inv
@@ -522,12 +588,22 @@ export const invitationService = {
       targetInv?.recipientId
     );
 
+    const demoAcceptedInv: ActivityInvitation | undefined = targetInv
+      ? {
+          ...targetInv,
+          status: normalizedStatus as InvitationStatus,
+          meetingStatus: (isAccepted ? 'pending' : 'cancelled') as MeetingStatus,
+          headline,
+          acceptedAt: isAccepted ? nowIso : undefined,
+        }
+      : undefined;
+
     return {
       success: true,
-      message: status === 'accepted' ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
+      message: isAccepted ? 'Break invitation accepted! Enjoy your break ✨' : 'Break invitation declined.',
       invitationId,
-      status,
-      meetingStatus: 'pending',
+      status: normalizedStatus,
+      meetingStatus: isAccepted ? 'pending' : 'cancelled',
       headline,
       senderId: targetInv?.senderId,
       recipientId: targetInv?.recipientId,
@@ -535,8 +611,70 @@ export const invitationService = {
       recipientName: targetInv?.recipientDisplayName,
       personalStreak: streaks.personalStreak,
       friendshipStreak: streaks.friendshipStreak,
-      invitation: targetInv ? { ...targetInv, status, meetingStatus: 'pending', headline, acceptedAt: nowIso } : undefined,
+      invitation: demoAcceptedInv,
     };
+  },
+
+  /**
+   * Updates the meetup lifecycle (pending, completed, cancelled, missed)
+   * separately from invitation status.
+   */
+  async updateMeetingStatus(
+    invitationId: string,
+    meetingStatus: MeetingStatus,
+    isDemo = false
+  ): Promise<{ success: boolean; error?: string; message?: string }> {
+    if (!invitationId) {
+      return { success: false, error: 'Invitation ID is required.' };
+    }
+
+    if (!isDemo && isSupabaseConfigured() && supabase) {
+      try {
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('update_meeting_status', {
+          input_invitation_id: invitationId,
+          input_meeting_status: meetingStatus,
+        });
+
+        if (!rpcError && rpcData) {
+          const res = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+          if (res.success) {
+            return { success: true, message: res.message };
+          }
+          return { success: false, error: res.error || 'Failed to update meeting status.' };
+        }
+
+        // Direct table update fallback
+        const { error: updateError } = await supabase
+          .from('activity_invitations')
+          .update({
+            meeting_status: meetingStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', invitationId);
+
+        if (updateError) {
+          return { success: false, error: updateError.message };
+        }
+        return { success: true, message: `Meeting status updated to ${meetingStatus}.` };
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        return { success: false, error: errorMsg };
+      }
+    }
+
+    // Demo mode: update in localStorage demo list
+    const list = this.getDemoInvitations();
+    const updated = list.map((inv) =>
+      inv.id === invitationId
+        ? {
+            ...inv,
+            meetingStatus,
+            updatedAt: new Date().toISOString(),
+          }
+        : inv
+    );
+    localStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(updated));
+    return { success: true, message: `Meeting status updated to ${meetingStatus}.` };
   },
 
   /**

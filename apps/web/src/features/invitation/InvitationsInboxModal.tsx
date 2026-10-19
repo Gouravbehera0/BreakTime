@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { NeomorphicButton } from '@/components/ui/NeomorphicButton';
 import { NeomorphicCard } from '@/components/ui/NeomorphicCard';
-import { ActivityInvitation } from '@/types/invitation';
+import { ActivityInvitation, MeetingStatus } from '@/types/invitation';
 
 interface InvitationsInboxModalProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ interface InvitationsInboxModalProps {
   currentUserId: string;
   onAccept: (invitationId: string) => Promise<void>;
   onDecline: (invitationId: string) => Promise<void>;
+  onUpdateMeetingStatus?: (invitationId: string, meetingStatus: MeetingStatus) => Promise<void>;
   isLoading?: boolean;
   onRefresh?: () => Promise<void> | void;
   onCelebrate?: (invitation: ActivityInvitation) => void;
@@ -33,6 +34,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
   currentUserId,
   onAccept,
   onDecline,
+  onUpdateMeetingStatus,
   isLoading = false,
   onRefresh,
   onCelebrate,
@@ -84,6 +86,40 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
     } catch {
       return 'Recently';
     }
+  };
+
+  const renderMeetingStatusBadge = (inv: ActivityInvitation) => {
+    const ms = inv.meetingStatus || 'pending';
+    if (ms === 'completed') {
+      return (
+        <span className="text-[10px] font-bold text-[#86EFAC] bg-[#86EFAC]/15 px-2.5 py-0.5 rounded-full border border-[#86EFAC]/30 flex items-center gap-1">
+          <Check className="w-3 h-3" />
+          <span>Meeting Completed</span>
+        </span>
+      );
+    }
+    if (ms === 'cancelled') {
+      return (
+        <span className="text-[10px] font-semibold text-[#FF6B81] bg-[#FF6B81]/10 px-2.5 py-0.5 rounded-full border border-[#FF6B81]/20 flex items-center gap-1">
+          <X className="w-3 h-3" />
+          <span>Meeting Cancelled</span>
+        </span>
+      );
+    }
+    if (ms === 'missed') {
+      return (
+        <span className="text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/25 flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          <span>Meeting Missed</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] font-bold text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30 flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        <span>Meeting Pending</span>
+      </span>
+    );
   };
 
   return (
@@ -163,7 +199,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
               incomingInvitations.map((inv) => {
                 const isPending = inv.status === 'pending' || inv.status === 'sent';
                 const isAccepted = inv.status === 'accepted';
-                const isDeclined = inv.status === 'declined';
+                const isRejected = inv.status === 'rejected' || inv.status === 'declined';
                 const isBusy = processingId === inv.id;
 
                 return (
@@ -223,10 +259,26 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
                               <Check className="w-3 h-3" />
                               <span>Accepted</span>
                             </span>
-                            <span className="text-[10px] font-bold text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>Meeting Pending</span>
-                            </span>
+                            {renderMeetingStatusBadge(inv)}
+                            {inv.meetingStatus === 'pending' && onUpdateMeetingStatus && (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateMeetingStatus(inv.id, 'completed')}
+                                  className="text-[10px] text-[#86EFAC] hover:underline font-semibold"
+                                >
+                                  Complete
+                                </button>
+                                <span className="text-[9px] text-[#7E7991]">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateMeetingStatus(inv.id, 'cancelled')}
+                                  className="text-[10px] text-[#FF6B81] hover:underline font-semibold"
+                                >
+                                  Cancel Meet
+                                </button>
+                              </div>
+                            )}
                             {onCelebrate && (
                               <button
                                 type="button"
@@ -239,7 +291,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
                             )}
                           </div>
                         )}
-                        {isDeclined && (
+                        {isRejected && (
                           <span className="text-[11px] font-semibold text-[#A5A0B5] bg-white/5 px-2.5 py-1 rounded-full border border-white/10 flex items-center gap-1">
                             <X className="w-3 h-3" />
                             <span>Declined</span>
@@ -300,7 +352,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
             ) : (
               sentInvitations.map((inv) => {
                 const isAccepted = inv.status === 'accepted';
-                const isDeclined = inv.status === 'declined';
+                const isRejected = inv.status === 'rejected' || inv.status === 'declined';
                 const isPending = inv.status === 'pending' || inv.status === 'sent';
 
                 return (
@@ -348,10 +400,26 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
                             <Check className="w-3 h-3" />
                             <span>Accepted</span>
                           </span>
-                          <span className="text-[10px] font-bold text-[#B45CFF] bg-[#B45CFF]/15 px-2 py-0.5 rounded-full border border-[#B45CFF]/30 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>Meeting Pending</span>
-                          </span>
+                          {renderMeetingStatusBadge(inv)}
+                          {inv.meetingStatus === 'pending' && onUpdateMeetingStatus && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => onUpdateMeetingStatus(inv.id, 'completed')}
+                                className="text-[10px] text-[#86EFAC] hover:underline font-semibold"
+                              >
+                                Complete
+                              </button>
+                              <span className="text-[9px] text-[#7E7991]">•</span>
+                              <button
+                                type="button"
+                                onClick={() => onUpdateMeetingStatus(inv.id, 'cancelled')}
+                                className="text-[10px] text-[#FF6B81] hover:underline font-semibold"
+                              >
+                                Cancel Meet
+                              </button>
+                            </div>
+                          )}
                           {onCelebrate && (
                             <button
                               type="button"
@@ -364,7 +432,7 @@ export const InvitationsInboxModal: React.FC<InvitationsInboxModalProps> = ({
                           )}
                         </div>
                       )}
-                      {isDeclined && (
+                      {isRejected && (
                         <span className="text-[11px] font-semibold text-[#A5A0B5] bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
                           Declined
                         </span>

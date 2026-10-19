@@ -12,7 +12,7 @@ export type Json =
   | Json[];
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
-export type InvitationStatus = 'pending' | 'sent' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+export type InvitationStatus = 'pending' | 'sent' | 'accepted' | 'rejected' | 'declined' | 'cancelled' | 'expired';
 export type FriendshipStatus = 'none' | 'friends' | 'pending_sent' | 'pending_received' | 'self';
 
 export interface Database {
@@ -153,7 +153,7 @@ export interface Database {
           activity_title: string;
           custom_note: string | null;
           status: InvitationStatus;
-          meeting_status?: 'pending' | 'completed' | 'missed';
+          meeting_status?: 'pending' | 'completed' | 'cancelled' | 'missed';
           accepted_at?: string | null;
           headline?: string | null;
           sender_celebrated_at?: string | null;
@@ -169,7 +169,7 @@ export interface Database {
           activity_title: string;
           custom_note?: string | null;
           status?: InvitationStatus;
-          meeting_status?: 'pending' | 'completed' | 'missed';
+          meeting_status?: 'pending' | 'completed' | 'cancelled' | 'missed';
           accepted_at?: string | null;
           headline?: string | null;
           sender_celebrated_at?: string | null;
@@ -185,7 +185,7 @@ export interface Database {
           activity_title?: string;
           custom_note?: string | null;
           status?: InvitationStatus;
-          meeting_status?: 'pending' | 'completed' | 'missed';
+          meeting_status?: 'pending' | 'completed' | 'cancelled' | 'missed';
           accepted_at?: string | null;
           headline?: string | null;
           sender_celebrated_at?: string | null;
@@ -322,6 +322,11 @@ export interface Database {
           activity_title: string;
           custom_note: string | null;
           status: string;
+          meeting_status: string;
+          headline: string | null;
+          accepted_at: string | null;
+          sender_celebrated_at: string | null;
+          recipient_celebrated_at: string | null;
           created_at: string;
           updated_at: string;
           expires_at: string | null;
@@ -337,6 +342,26 @@ export interface Database {
         Args: {
           input_invitation_id: string;
           input_status: string;
+        };
+        Returns: Json;
+      };
+      update_meeting_status: {
+        Args: {
+          input_invitation_id: string;
+          input_meeting_status: string;
+        };
+        Returns: Json;
+      };
+      mark_invitation_celebrated: {
+        Args: {
+          input_invitation_id: string;
+          input_role?: string | null;
+        };
+        Returns: Json;
+      };
+      get_invitation_streaks: {
+        Args: {
+          target_friend_id?: string | null;
         };
         Returns: Json;
       };

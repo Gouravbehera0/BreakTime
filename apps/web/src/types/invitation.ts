@@ -1,5 +1,5 @@
-export type InvitationStatus = 'pending' | 'sent' | 'accepted' | 'declined' | 'cancelled' | 'expired';
-export type MeetingStatus = 'pending' | 'completed' | 'missed';
+export type InvitationStatus = 'pending' | 'sent' | 'accepted' | 'rejected' | 'declined' | 'cancelled' | 'expired';
+export type MeetingStatus = 'pending' | 'completed' | 'cancelled' | 'missed';
 
 export interface ActivityInvitation {
   id: string;

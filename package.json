@@ -1,5 +1,6 @@
 {
   "name": "breaktym-monorepo",
+  "type": "module",
   "private": true,
   "workspaces": [
     "apps/web"

@@ -275,7 +275,13 @@ export const AcceptanceCelebrationModal: React.FC<AcceptanceCelebrationModalProp
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#B45CFF]/15 border border-[#B45CFF]/30 text-[#B45CFF] flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>MEETING PENDING</span>
+                <span>
+                  {invitation.meetingStatus === 'completed'
+                    ? 'MEETING COMPLETED'
+                    : invitation.meetingStatus === 'cancelled'
+                    ? 'MEETING CANCELLED'
+                    : 'MEETING PENDING'}
+                </span>
               </span>
             </div>
           </div>

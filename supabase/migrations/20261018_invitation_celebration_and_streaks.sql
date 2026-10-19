@@ -4,7 +4,7 @@
 
 -- 1. EXTEND public.activity_invitations WITH CELEBRATION & MEETING TRACKING
 ALTER TABLE public.activity_invitations
-    ADD COLUMN IF NOT EXISTS meeting_status TEXT NOT NULL DEFAULT 'pending' CHECK (meeting_status IN ('pending', 'completed', 'missed')),
+    ADD COLUMN IF NOT EXISTS meeting_status TEXT NOT NULL DEFAULT 'pending' CHECK (meeting_status IN ('pending', 'completed', 'cancelled', 'missed')),
     ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS headline TEXT,
     ADD COLUMN IF NOT EXISTS sender_celebrated_at TIMESTAMPTZ,
@@ -36,8 +36,10 @@ BEGIN
     END IF;
 
     -- Step 2: Validate status
-    IF input_status NOT IN ('accepted', 'declined') THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Invalid status. Must be accepted or declined.');
+    IF input_status = 'declined' THEN
+        input_status := 'rejected';
+    ELSIF input_status NOT IN ('accepted', 'rejected') THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Invalid status. Must be accepted or rejected.');
     END IF;
 
     -- Step 3: Fetch invitation
@@ -49,13 +51,36 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Invitation not found.');
     END IF;
 
-    -- Step 4: Strict authorization: only recipient can accept or decline
+    -- Step 4: Strict authorization: only recipient can accept or reject
     IF inv_record.recipient_id <> current_uid THEN
         RETURN jsonb_build_object('success', false, 'error', 'Unauthorized: You can only respond to invitations sent to you.');
     END IF;
 
-    -- Step 5: Idempotency check - prevent duplicate transitions
+    -- Step 5: Idempotency check - prevent duplicate transitions & duplicate streak increments
     IF inv_record.status NOT IN ('pending', 'sent') THEN
+        IF inv_record.status = input_status OR (input_status = 'rejected' AND inv_record.status = 'declined') THEN
+            SELECT COUNT(DISTINCT id)::INT INTO p_streak
+            FROM public.activity_invitations
+            WHERE sender_id = inv_record.sender_id AND status = 'accepted';
+
+            SELECT COUNT(DISTINCT id)::INT INTO f_streak
+            FROM public.activity_invitations
+            WHERE ((sender_id = inv_record.sender_id AND recipient_id = inv_record.recipient_id)
+                OR (sender_id = inv_record.recipient_id AND recipient_id = inv_record.sender_id))
+              AND status = 'accepted';
+
+            RETURN jsonb_build_object(
+                'success', true,
+                'message', 'Invitation is already ' || inv_record.status || '.',
+                'invitation_id', input_invitation_id,
+                'status', inv_record.status,
+                'meeting_status', COALESCE(inv_record.meeting_status, 'pending'),
+                'headline', inv_record.headline,
+                'personal_streak', p_streak,
+                'friendship_streak', f_streak
+            );
+        END IF;
+
         RETURN jsonb_build_object('success', false, 'error', 'This invitation has already been ' || inv_record.status || '.');
     END IF;
 
@@ -74,22 +99,22 @@ BEGIN
         END;
 
         -- Atomic update: transition to accepted, initialize meeting_status as 'pending'
+        -- Note: recipient_celebrated_at remains NULL until acknowledged by user
         UPDATE public.activity_invitations
         SET status = 'accepted',
             meeting_status = 'pending',
             accepted_at = NOW(),
             headline = selected_headline,
-            recipient_celebrated_at = NOW(), -- Mark immediately celebrated for recipient
             updated_at = NOW()
         WHERE id = input_invitation_id;
 
-        -- Calculate fresh personal streak for sender
-        SELECT COUNT(*)::INT INTO p_streak
+        -- Calculate fresh personal streak for sender (unique accepted invitations)
+        SELECT COUNT(DISTINCT id)::INT INTO p_streak
         FROM public.activity_invitations
         WHERE sender_id = inv_record.sender_id AND status = 'accepted';
 
         -- Calculate fresh friendship streak between this pair
-        SELECT COUNT(*)::INT INTO f_streak
+        SELECT COUNT(DISTINCT id)::INT INTO f_streak
         FROM public.activity_invitations
         WHERE ((sender_id = inv_record.sender_id AND recipient_id = inv_record.recipient_id)
             OR (sender_id = inv_record.recipient_id AND recipient_id = inv_record.sender_id))
@@ -111,9 +136,10 @@ BEGIN
             'friendship_streak', f_streak
         );
     ELSE
-        -- Decline transition
+        -- Decline / reject transition
         UPDATE public.activity_invitations
-        SET status = 'declined',
+        SET status = 'rejected',
+            meeting_status = 'cancelled',
             updated_at = NOW()
         WHERE id = input_invitation_id;
 
@@ -121,7 +147,8 @@ BEGIN
             'success', true,
             'message', 'Break invitation declined.',
             'invitation_id', input_invitation_id,
-            'status', 'declined'
+            'status', 'rejected',
+            'meeting_status', 'cancelled'
         );
     END IF;
 END;
@@ -183,14 +210,14 @@ BEGIN
     END IF;
 
     -- Metric A: Personal streak - unique invitations sent by current user that were accepted
-    SELECT COUNT(*)::INT INTO personal_streak
+    SELECT COUNT(DISTINCT id)::INT INTO personal_streak
     FROM public.activity_invitations
     WHERE sender_id = current_uid
       AND status = 'accepted';
 
     -- Metric B: Friendship streak - unique accepted invitations between this pair in either direction
     IF target_friend_id IS NOT NULL THEN
-        SELECT COUNT(*)::INT INTO friendship_streak
+        SELECT COUNT(DISTINCT id)::INT INTO friendship_streak
         FROM public.activity_invitations
         WHERE ((sender_id = current_uid AND recipient_id = target_friend_id)
             OR (sender_id = target_friend_id AND recipient_id = current_uid))

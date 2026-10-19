@@ -309,17 +309,11 @@ export const App: React.FC = () => {
               };
 
               setCelebratingInvitation(mappedInv);
-              invitationService.markCelebrationSeen(
-                record.id,
-                currentUserId,
-                isUserSender ? 'sender' : 'recipient',
-                session.isDemoUser
-              );
             }
           } else if (
             payload.eventType === 'UPDATE' &&
             record.sender_id === currentUserId &&
-            record.status === 'declined'
+            (record.status === 'declined' || record.status === 'rejected')
           ) {
             const title = record.activity_title || 'Break';
             setToastNotice(`Your invitation for ${title} was declined.`);
@@ -341,6 +335,7 @@ export const App: React.FC = () => {
   // Invitation response handlers
   const handleAcceptInvitation = async (invitationId: string) => {
     if (!session.user) return;
+    const existing = invitations.find((i) => i.id === invitationId);
     const result = await invitationService.respondToInvitation(
       invitationId,
       session.user.id,
@@ -353,16 +348,24 @@ export const App: React.FC = () => {
       await loadStreaks();
 
       // Trigger celebration for recipient immediately
-      if (result.invitation) {
-        setCelebratingInvitation(result.invitation);
-        setCelebrationStreak(result.friendshipStreak);
-        invitationService.markCelebrationSeen(
-          invitationId,
-          session.user.id,
-          'recipient',
-          session.isDemoUser
-        );
-      }
+      const celebrationInv: ActivityInvitation = result.invitation || {
+        id: invitationId,
+        senderId: result.senderId || existing?.senderId || '',
+        recipientId: session.user.id,
+        activityId: existing?.activityId || '',
+        activityTitle: existing?.activityTitle || 'Break',
+        customNote: existing?.customNote,
+        status: 'accepted',
+        meetingStatus: 'pending',
+        headline: result.headline || getCelebrationHeadline(invitationId),
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        acceptedAt: new Date().toISOString(),
+        senderDisplayName: result.senderName || existing?.senderDisplayName || 'Friend',
+        recipientDisplayName: session.profile?.displayName || 'You',
+      };
+
+      setCelebratingInvitation(celebrationInv);
+      setCelebrationStreak(result.friendshipStreak);
     } else {
       setToastNotice(result.error || 'Failed to accept invitation.');
     }
@@ -373,7 +376,7 @@ export const App: React.FC = () => {
     const result = await invitationService.respondToInvitation(
       invitationId,
       session.user.id,
-      'declined',
+      'rejected',
       session.isDemoUser
     );
     if (result.success) {
@@ -618,6 +621,15 @@ export const App: React.FC = () => {
           currentUserId={session.user.id}
           onAccept={handleAcceptInvitation}
           onDecline={handleDeclineInvitation}
+          onUpdateMeetingStatus={async (invitationId, meetingStatus) => {
+            const res = await invitationService.updateMeetingStatus(invitationId, meetingStatus, session.isDemoUser);
+            if (res.success) {
+              setToastNotice(res.message || `Meeting status updated to ${meetingStatus}.`);
+              await loadInvitations();
+            } else {
+              setToastNotice(res.error || 'Failed to update meeting status.');
+            }
+          }}
           isLoading={isLoadingInvitations}
           onRefresh={loadInvitations}
           onCelebrate={(inv) => {
@@ -698,11 +710,31 @@ export const App: React.FC = () => {
       {session.user && (
         <AcceptanceCelebrationModal
           isOpen={Boolean(celebratingInvitation)}
-          onClose={() => setCelebratingInvitation(null)}
+          onClose={() => {
+            if (celebratingInvitation && session.user) {
+              const role = celebratingInvitation.senderId === session.user.id ? 'sender' : 'recipient';
+              invitationService.markCelebrationSeen(
+                celebratingInvitation.id,
+                session.user.id,
+                role,
+                session.isDemoUser
+              );
+            }
+            setCelebratingInvitation(null);
+          }}
           invitation={celebratingInvitation}
           currentUserId={session.user.id}
           friendshipStreak={celebrationStreak}
           onViewInvitation={(_inv) => {
+            if (celebratingInvitation && session.user) {
+              const role = celebratingInvitation.senderId === session.user.id ? 'sender' : 'recipient';
+              invitationService.markCelebrationSeen(
+                celebratingInvitation.id,
+                session.user.id,
+                role,
+                session.isDemoUser
+              );
+            }
             setCelebratingInvitation(null);
             setShowInboxModal(true);
           }}
